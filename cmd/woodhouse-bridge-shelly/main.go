@@ -82,7 +82,8 @@ func main() {
 			// Run the bridge stuff.
 			wg.Add(1)
 			go func() {
-				err := bridge.Run(ctx)
+				connector := wh.NewConnector(bridge.Run)
+				err := connector.Run(ctx)
 				if err != nil {
 					errs <- err
 				}
