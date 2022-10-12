@@ -21,7 +21,7 @@ func init() {
 
 // ShellyDimmer2 - device type: SHDM-2
 type ShellyDimmer2 struct {
-	bd       *wh.BridgeDevice
+	comms    *wh.BridgeComms
 	rest     Rest
 	hostname string
 	name     string
@@ -40,8 +40,8 @@ type ShellyDimmer2State struct {
 	Transition     int    `json:"transition"`      // One-shot transition, 0..5000 [ms]
 }
 
-func (d *ShellyDimmer2) Init(bd *wh.BridgeDevice) {
-	d.bd = bd
+func (d *ShellyDimmer2) Init(comms *wh.BridgeComms) {
+	d.comms = comms
 }
 
 func (d *ShellyDimmer2) SendFullUpdate() {
@@ -64,7 +64,7 @@ func (d *ShellyDimmer2) UpdateInfo() {
 	d.name = settings.Name
 	log.Printf("received %s settings: %s", d.hostname, settings.Name)
 
-	d.bd.SendInfo(&api.DeviceInfo{
+	d.comms.SendInfo(&api.DeviceInfo{
 		DeviceId:    d.hostname,
 		Name:        d.name,
 		Description: "Shelly Dimmer 1/2",
@@ -108,7 +108,7 @@ func (d *ShellyDimmer2) sendAndUpdateState(params string, fullUpdate bool) error
 		update.Values = append(update.Values, &api.DeviceValue{
 			Name: "Brightness",
 			Number: &api.NumberValue{
-				Value: float32(next.Brightness),
+				Value: float64(next.Brightness),
 			},
 		})
 	}
@@ -118,7 +118,7 @@ func (d *ShellyDimmer2) sendAndUpdateState(params string, fullUpdate bool) error
 
 	if len(update.Values) > 0 {
 		log.Printf("device %s: name: %s, on: %t, bri: %d", d.hostname, d.name, d.state.IsOn, d.state.Brightness)
-		d.bd.SendState(update)
+		d.comms.SendState(update)
 	}
 
 	return nil
