@@ -66,12 +66,15 @@ func (d *ShellyDimmer2) UpdateInfo() {
 	d.name = settings.Name
 	log.Printf("received %s settings: %s", d.hostname, settings.Name)
 
-	d.comms.SendInfo(&api.DeviceInfo{
+	err = d.comms.SendInfo(&api.DeviceInfo{
 		DeviceId:    d.hostname,
 		Name:        d.name,
 		Description: "Shelly Dimmer 2",
 		Url:         "http://" + d.ip,
 	})
+	if err != nil {
+		log.Printf("ERROR: device %s: failed to send info: %s", d.hostname, err)
+	}
 }
 
 func (d *ShellyDimmer2) UpdateState(fullUpdate bool) {
@@ -121,7 +124,10 @@ func (d *ShellyDimmer2) sendAndUpdateState(params string, fullUpdate bool) error
 
 	if len(update.Values) > 0 {
 		log.Printf("device %s: name: %s, on: %t, bri: %d", d.hostname, d.name, d.state.IsOn, d.state.Brightness)
-		d.comms.SendState(update)
+		err = d.comms.SendState(update)
+		if err != nil {
+			log.Printf("ERROR: device %s: failed to send state: %s", d.hostname, err)
+		}
 	}
 
 	return nil
