@@ -1,4 +1,4 @@
-package shelly
+package shelly_v1
 
 import "github.com/jimjibone/woodhouse-4/wh"
 

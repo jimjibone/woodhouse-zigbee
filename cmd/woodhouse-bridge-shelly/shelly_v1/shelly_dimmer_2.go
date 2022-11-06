@@ -1,4 +1,4 @@
-package shelly
+package shelly_v1
 
 import (
 	"fmt"
@@ -15,6 +15,7 @@ func init() {
 		return &ShellyDimmer2{
 			rest:     Rest{IP: ip},
 			hostname: hostname,
+			ip:       ip,
 		}
 	})
 }
@@ -24,6 +25,7 @@ type ShellyDimmer2 struct {
 	comms    *wh.BridgeComms
 	rest     Rest
 	hostname string
+	ip       string
 	name     string
 	state    ShellyDimmer2State
 }
@@ -67,7 +69,8 @@ func (d *ShellyDimmer2) UpdateInfo() {
 	d.comms.SendInfo(&api.DeviceInfo{
 		DeviceId:    d.hostname,
 		Name:        d.name,
-		Description: "Shelly Dimmer 1/2",
+		Description: "Shelly Dimmer 2",
+		Url:         "http://" + d.ip,
 	})
 }
 

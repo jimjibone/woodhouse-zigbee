@@ -1,9 +1,20 @@
-package shelly
+package shelly_v1
 
 import (
 	"encoding/json"
 	"time"
 )
+
+type Shelly struct {
+	Type       string `json:"type"`
+	MAC        string `json:"mac"`
+	Auth       bool   `json:"auth"`
+	Firmware   string `json:"fw"`
+	LongID     int    `json:"longid"`
+	NumInputs  int    `json:"num_inputs"`
+	NumOutputs int    `json:"num_outputs"`
+	NumMeters  int    `json:"num_meters"`
+}
 
 type DeviceStatus struct {
 	WifiSta struct {

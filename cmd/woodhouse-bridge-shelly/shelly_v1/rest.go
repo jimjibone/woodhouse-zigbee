@@ -1,4 +1,4 @@
-package shelly
+package shelly_v1
 
 import (
 	"encoding/json"
@@ -8,6 +8,30 @@ import (
 
 type Rest struct {
 	IP string
+}
+
+func (r Rest) GetShelly() (Shelly, error) {
+	req, err := http.NewRequest("GET", "http://"+r.IP+"/shelly", nil)
+	if err != nil {
+		return Shelly{}, err
+	}
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return Shelly{}, err
+	}
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return Shelly{}, err
+	}
+	res.Body.Close()
+
+	var msg Shelly
+	err = json.Unmarshal(body, &msg)
+	if err != nil {
+		return Shelly{}, err
+	}
+	return msg, nil
 }
 
 func (r Rest) GetStatus() (DeviceStatus, error) {
