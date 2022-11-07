@@ -60,11 +60,14 @@ func (zd *ZigbeeDeviceLight) IEEEAddress() string        { return zd.ieeeAddress
 func (zd *ZigbeeDeviceLight) FriendlyName() string       { return zd.friendlyName }
 
 func (zd *ZigbeeDeviceLight) SendFullUpdate() {
-	zd.comms.SendInfo(&api.DeviceInfo{
+	err := zd.comms.SendInfo(&api.DeviceInfo{
 		DeviceId:    zd.DeviceID(),
 		Name:        zd.friendlyName,
 		Description: zd.description,
 	})
+	if err != nil {
+		log.Printf("ERROR: device %s: failed to send info: %s", zd.friendlyName, err)
+	}
 	msg := &api.DeviceState{
 		DeviceId:   zd.DeviceID(),
 		FullUpdate: true,
@@ -73,7 +76,10 @@ func (zd *ZigbeeDeviceLight) SendFullUpdate() {
 	for _, val := range zd.values {
 		msg.Values = append(msg.Values, proto.Clone(val).(*api.DeviceValue))
 	}
-	zd.comms.SendState(msg)
+	err = zd.comms.SendState(msg)
+	if err != nil {
+		log.Printf("ERROR: device %s: failed to send state: %s", zd.friendlyName, err)
+	}
 }
 
 func (zd *ZigbeeDeviceLight) HandleRequest(req *api.DeviceRequest) error {
@@ -125,11 +131,14 @@ func (zd *ZigbeeDeviceLight) updateInfo(info *DeviceInfo, sendChanges bool) {
 		}
 	}
 	if sendChanges {
-		zd.comms.SendInfo(&api.DeviceInfo{
+		err := zd.comms.SendInfo(&api.DeviceInfo{
 			DeviceId:    zd.DeviceID(),
 			Name:        zd.friendlyName,
 			Description: zd.description,
 		})
+		if err != nil {
+			log.Printf("ERROR: device %s: failed to send info: %s", zd.friendlyName, err)
+		}
 	}
 }
 
@@ -181,6 +190,9 @@ func (zd *ZigbeeDeviceLight) UpdateState(state *DeviceState) {
 		for _, val := range zd.values {
 			msg.Values = append(msg.Values, proto.Clone(val).(*api.DeviceValue))
 		}
-		zd.comms.SendState(msg)
+		err := zd.comms.SendState(msg)
+		if err != nil {
+			log.Printf("ERROR: device %s: failed to send state: %s", zd.friendlyName, err)
+		}
 	}
 }
