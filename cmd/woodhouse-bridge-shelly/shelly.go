@@ -30,8 +30,8 @@ func shellyStuff(ctx context.Context, bridge *wh.Bridge, doUpdatesChan <-chan bo
 		return fmt.Errorf("failed to browse: %w", err)
 	}
 
-	var devices_v1 []shelly_v1.Device
-	var devices_v2 []shelly_v2.Device
+	devices_v1 := make(map[string]shelly_v1.Device)
+	devices_v2 := make(map[string]shelly_v2.Device)
 
 	// Get devices to close when we're exiting.
 	defer func() {
@@ -53,14 +53,30 @@ func shellyStuff(ctx context.Context, bridge *wh.Bridge, doUpdatesChan <-chan bo
 		case doUpdates = <-doUpdatesChan:
 
 		case entry := <-entries:
-			deviceID, device_v1, device_v2 := handleDiscovery(bridge, entry)
-			if device_v1 != nil {
-				devices_v1 = append(devices_v1, device_v1)
-				bridge.AddDevice(deviceID, device_v1)
+			ip := ""
+			if len(entry.AddrIPv4) > 0 {
+				ip = entry.AddrIPv4[0].String()
 			}
-			if device_v2 != nil {
-				devices_v2 = append(devices_v2, device_v2)
-				bridge.AddDevice(deviceID, device_v2)
+			hostname := strings.TrimSuffix(entry.HostName, ".local.")
+
+			exists := false
+			if _, found := devices_v1[hostname]; found {
+				exists = true
+			}
+			if _, found := devices_v2[hostname]; found {
+				exists = true
+			}
+
+			if !exists {
+				deviceID, device_v1, device_v2 := handleDiscovery(bridge, ip, hostname)
+				if device_v1 != nil {
+					devices_v1[deviceID] = device_v1
+					bridge.AddDevice(deviceID, device_v1)
+				}
+				if device_v2 != nil {
+					devices_v2[deviceID] = device_v2
+					bridge.AddDevice(deviceID, device_v2)
+				}
 			}
 
 		case <-ticker.C:
@@ -74,42 +90,36 @@ func shellyStuff(ctx context.Context, bridge *wh.Bridge, doUpdatesChan <-chan bo
 	}
 }
 
-func handleDiscovery(bridge *wh.Bridge, entry *zeroconf.ServiceEntry) (deviceID string, device_v1 shelly_v1.Device, device_v2 shelly_v2.Device) {
-	ipstring := ""
-	if len(entry.AddrIPv4) > 0 {
-		ipstring = entry.AddrIPv4[0].String()
-	}
-	hostname := strings.TrimSuffix(entry.HostName, ".local.")
-
+func handleDiscovery(bridge *wh.Bridge, ip, hostname string) (deviceID string, device_v1 shelly_v1.Device, device_v2 shelly_v2.Device) {
 	// Gen 1 Device API - https://shelly-api-docs.shelly.cloud/gen1
 	if strings.Contains(hostname, "shelly") {
-		rest := shelly_v1.Rest{IP: ipstring}
+		rest := shelly_v1.Rest{IP: ip}
 		settings, err := rest.GetSettings()
 		if err != nil {
-			log.Printf("ERROR: failed to get settings for %s: %s", ipstring, err)
+			log.Printf("ERROR: failed to get settings for %s: %s", ip, err)
 			return "", nil, nil
 		}
 
-		log.Printf("discovered v1 %s at http://%s (name: %s)", hostname, ipstring, settings.Name)
+		log.Printf("discovered v1 %s at http://%s (name: %s)", hostname, ip, settings.Name)
 
-		return hostname, shelly_v1.Generate(settings.Device.Type, hostname, ipstring), nil
+		return hostname, shelly_v1.Generate(settings.Device.Type, hostname, ip), nil
 	}
 
 	// Gen 2 Device API - https://shelly-api-docs.shelly.cloud/gen2
 	if strings.Contains(hostname, "ShellyPlus") {
-		rest := shelly_v2.Rest{IP: ipstring}
+		rest := shelly_v2.Rest{IP: ip}
 		info, err := rest.GetShelly()
 		if err != nil {
-			log.Printf("ERROR: failed to get shelly info for %s: %s", ipstring, err)
+			log.Printf("ERROR: failed to get shelly info for %s: %s", ip, err)
 			return "", nil, nil
 		}
 
-		log.Printf("discovered v2 %s at http://%s (name: %s, app: %s)", hostname, ipstring, info.Name, info.App)
+		log.Printf("discovered v2 %s at http://%s (name: %s, app: %s)", hostname, ip, info.Name, info.App)
 
-		return hostname, nil, shelly_v2.NewShellyPlusDevice(hostname, ipstring, info.Name, info.App)
+		return hostname, nil, shelly_v2.NewShellyPlusDevice(hostname, ip, info.Name, info.App)
 	}
 
-	log.Printf("other thing %s at http://%s (txt: %s)", hostname, ipstring, entry.Text)
+	log.Printf("other thing %s at http://%s", hostname, ip)
 
 	return "", nil, nil
 }
