@@ -38,17 +38,17 @@ type ZigbeeDeviceLight struct {
 	friendlyName string
 	description  string
 	lastSeen     time.Time
-	exposers     map[string]*Exposed
-	values       map[string]*api.DeviceValue
-	publish      func(topic string, payload []byte)
+	// exposers     map[string]*Exposed
+	values  map[string]*api.DeviceValue
+	publish func(topic string, payload []byte)
 }
 
 func NewZigbeeDeviceLight(info *DeviceInfo, publish func(topic string, payload []byte)) *ZigbeeDeviceLight {
 	zd := &ZigbeeDeviceLight{
 		ieeeAddress: info.IEEEAddress,
-		exposers:    make(map[string]*Exposed),
-		values:      make(map[string]*api.DeviceValue),
-		publish:     publish,
+		// exposers:    make(map[string]*Exposed),
+		values:  make(map[string]*api.DeviceValue),
+		publish: publish,
 	}
 	zd.updateInfo(info, false)
 	return zd
@@ -85,25 +85,26 @@ func (zd *ZigbeeDeviceLight) SendFullUpdate() {
 func (zd *ZigbeeDeviceLight) HandleRequest(req *api.DeviceRequest) error {
 	reqjson := make(map[string]interface{})
 	for _, val := range req.Values {
-		if exposer, found := zd.exposers[val.Name]; found {
-			valjson := exposer.Value.GetJSON(val)
-			if exposer.PrefixProperty != "" {
-				if prev, found := reqjson[exposer.PrefixProperty]; found {
-					switch p := prev.(type) {
-					case map[string]interface{}:
-						p[exposer.Property] = valjson
-					default:
-						panic(fmt.Sprintf("reqjson contains a non interface entry for a composite value: %s", exposer))
-					}
-				} else {
-					reqjson[exposer.PrefixProperty] = map[string]interface{}{
-						exposer.Property: valjson,
-					}
-				}
-			} else {
-				reqjson[exposer.Property] = valjson
-			}
-		}
+		_ = val
+		// if exposer, found := zd.exposers[val.Name]; found {
+		// 	valjson := exposer.Value.GetJSON(val)
+		// 	if exposer.PrefixProperty != "" {
+		// 		if prev, found := reqjson[exposer.PrefixProperty]; found {
+		// 			switch p := prev.(type) {
+		// 			case map[string]interface{}:
+		// 				p[exposer.Property] = valjson
+		// 			default:
+		// 				panic(fmt.Sprintf("reqjson contains a non interface entry for a composite value: %s", exposer))
+		// 			}
+		// 		} else {
+		// 			reqjson[exposer.PrefixProperty] = map[string]interface{}{
+		// 				exposer.Property: valjson,
+		// 			}
+		// 		}
+		// 	} else {
+		// 		reqjson[exposer.Property] = valjson
+		// 	}
+		// }
 	}
 	if len(reqjson) > 0 {
 		data, err := json.Marshal(reqjson)
@@ -123,12 +124,12 @@ func (zd *ZigbeeDeviceLight) updateInfo(info *DeviceInfo, sendChanges bool) {
 	zd.friendlyName = info.FriendlyName
 	if info.Definition != nil {
 		zd.description = info.Definition.Description
-		exposers, typeName := info.Definition.FlattenExposes()
-		zd.exposers = exposers
-		log.Printf("updating %s with %d exposers - type: %s", zd.friendlyName, len(zd.exposers), typeName)
-		for name, exposer := range zd.exposers {
-			log.Printf("updated exposer: %s --> %s", name, exposer)
-		}
+		// exposers, typeName := info.Definition.FlattenExposes()
+		// zd.exposers = exposers
+		// log.Printf("updating %s with %d exposers - type: %s", zd.friendlyName, len(zd.exposers), typeName)
+		// for name, exposer := range zd.exposers {
+		// 	log.Printf("updated exposer: %s --> %s", name, exposer)
+		// }
 	}
 	if sendChanges {
 		err := zd.comms.SendInfo(&api.DeviceInfo{
@@ -149,37 +150,49 @@ func (zd *ZigbeeDeviceLight) UpdateState(state *DeviceState) {
 		zd.lastSeen = state.LastSeen
 	}
 
-	// Flatten state values.
-	stateValues := make(map[string]interface{})
-	for name, value := range state.Values {
-		switch val := value.(type) {
-		case map[string]interface{}:
-			for name2, value2 := range val {
-				stateValues[name+"."+name2] = value2
-			}
-		default:
-			stateValues[name] = val
-		}
-	}
-
-	log.Printf("updating %s with %d values", zd.friendlyName, len(stateValues))
-
-	// Convert state values to api values via the exposers.
-	for name, val := range stateValues {
-		if exposer, found := zd.exposers[name]; found {
-			changed = true
-			next := exposer.Value.GetValue(val)
-			if next != nil {
-				next.Name = name
-				zd.values[name] = next
-				log.Printf("updated value for state %q: %v --> %v", name, val, next)
-			} else {
-				log.Printf("ERROR: no value created for state %q: %v", name, val)
-			}
+	for name, next := range state.Values {
+		value := next.Value()
+		value.Name = name
+		if prev, found := zd.values[name]; found {
+			log.Printf("updated value for state %q: %v --> %v", name, prev, next)
 		} else {
-			log.Printf("ERROR: no exposer found for state %q: %v", name, val)
+			log.Printf("new value for state %q: %v", name, next)
 		}
+		changed = true
+		zd.values[name] = value
 	}
+
+	// // Flatten state values.
+	// stateValues := make(map[string]interface{})
+	// for name, value := range state.Values {
+	// 	switch val := value.(type) {
+	// 	case map[string]interface{}:
+	// 		for name2, value2 := range val {
+	// 			stateValues[name+"."+name2] = value2
+	// 		}
+	// 	default:
+	// 		stateValues[name] = val
+	// 	}
+	// }
+
+	// log.Printf("updating %s with %d values", zd.friendlyName, len(stateValues))
+
+	// // Convert state values to api values via the exposers.
+	// for name, val := range stateValues {
+	// 	if exposer, found := zd.exposers[name]; found {
+	// 		changed = true
+	// 		next := exposer.Value.GetValue(val)
+	// 		if next != nil {
+	// 			next.Name = name
+	// 			zd.values[name] = next
+	// 			log.Printf("updated value for state %q: %v --> %v", name, val, next)
+	// 		} else {
+	// 			log.Printf("ERROR: no value created for state %q: %v", name, val)
+	// 		}
+	// 	} else {
+	// 		log.Printf("ERROR: no exposer found for state %q: %v", name, val)
+	// 	}
+	// }
 
 	if changed {
 		msg := &api.DeviceState{

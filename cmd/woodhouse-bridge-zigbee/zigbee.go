@@ -227,6 +227,7 @@ func (zb *Zigbee) handleDeviceState(friendlyName string, payload []byte) {
 		return
 	}
 
+	// log.Printf("device state: %s\n%s", friendlyName, payload)
 	log.Printf("device state: %s\n%s", friendlyName, state.LongString("  "))
 
 	// Update and possibly add devices.
