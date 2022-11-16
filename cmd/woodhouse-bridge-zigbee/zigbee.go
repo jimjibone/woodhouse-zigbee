@@ -10,7 +10,7 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/jimjibone/queue/v2"
-	"github.com/jimjibone/woodhouse-4/cmd/woodhouse-bridge-zigbee/zigbee"
+	"github.com/jimjibone/woodhouse-4/cmd/woodhouse-bridge-zigbee/zigbee_old"
 	"github.com/jimjibone/woodhouse-4/wh"
 )
 
@@ -25,7 +25,7 @@ type Zigbee struct {
 	lastBackoff     time.Time
 	backoffDuration time.Duration
 	bridge          *wh.Bridge
-	devices         map[string]zigbee.ZigbeeDevice // devices with their IEEE address as the key.
+	devices         map[string]zigbee_old.ZigbeeDevice // devices with their IEEE address as the key.
 	publish         *queue.Queue[publishMessage]
 }
 
@@ -39,7 +39,7 @@ func (zb *Zigbee) Run(ctx context.Context, bridge *wh.Bridge) error {
 	defer log.Printf("zigbee finished")
 
 	zb.bridge = bridge
-	zb.devices = make(map[string]zigbee.ZigbeeDevice)
+	zb.devices = make(map[string]zigbee_old.ZigbeeDevice)
 	zb.publish = queue.New[publishMessage]()
 	zb.publish.Discard(true)
 
@@ -171,7 +171,7 @@ func (zb *Zigbee) messageHandler(client mqtt.Client, msg mqtt.Message) {
 	// log.Printf("ERROR: received unexpected topic: %s", msg.Topic())
 }
 
-func (zb *Zigbee) findDeviceByName(name string) zigbee.ZigbeeDevice {
+func (zb *Zigbee) findDeviceByName(name string) zigbee_old.ZigbeeDevice {
 	if name != "" {
 		for _, dev := range zb.devices {
 			if dev.FriendlyName() == name {
@@ -193,7 +193,7 @@ func (zb *Zigbee) handleState(online bool) {
 func (zb *Zigbee) handleDevicesInfos(payload []byte) {
 	// log.Printf("device infos: %s", payload)
 
-	var devices zigbee.DeviceInfos
+	var devices []*zigbee_old.DeviceInfo
 	if err := json.Unmarshal(payload, &devices); err != nil {
 		log.Printf("ERROR: failed to unmarshal device infos: %v", err)
 		return
@@ -210,7 +210,7 @@ func (zb *Zigbee) handleDevicesInfos(payload []byte) {
 			if dev, found := zb.devices[info.IEEEAddress]; found {
 				dev.UpdateInfo(info)
 			} else {
-				dev := zigbee.CreateDevice(info, zb.publishHandler)
+				dev := zigbee_old.CreateDevice(info, zb.publishHandler)
 				zb.devices[info.IEEEAddress] = dev
 				zb.bridge.AddDevice(dev.DeviceID(), dev)
 			}
@@ -221,7 +221,7 @@ func (zb *Zigbee) handleDevicesInfos(payload []byte) {
 func (zb *Zigbee) handleDeviceState(friendlyName string, payload []byte) {
 	// log.Printf("device state: %s: %s", friendlyName, payload)
 
-	var state zigbee.DeviceState
+	var state zigbee_old.DeviceState
 	if err := json.Unmarshal(payload, &state); err != nil {
 		log.Printf("ERROR: failed to unmarshal device state: %v", err)
 		return
