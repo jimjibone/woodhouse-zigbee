@@ -34,6 +34,7 @@ type ShellyPlusDevice struct {
 	scripts         map[int]*ScriptValue
 	switches        map[int]*SwitchValue
 	lastBackoff     time.Time
+	lastRestart     time.Time
 	backoffDuration time.Duration
 }
 
@@ -171,7 +172,9 @@ func (d *ShellyPlusDevice) run(ctx context.Context) {
 func (d *ShellyPlusDevice) connect() *websocket.Conn {
 	conn, _, err := websocket.DefaultDialer.Dial(fmt.Sprintf("ws://%s/rpc", d.ip), nil)
 	if err != nil {
-		log.Fatal("dial:", err)
+		log.Println("ERROR: dial:", err)
+		conn.Close()
+		return nil
 	}
 
 	err = conn.WriteMessage(websocket.TextMessage, []byte(`{"id":100, "src":"woodhouse", "method":"Shelly.GetConfig"}`))
@@ -387,7 +390,7 @@ func (d *ShellyPlusDevice) recv(ctx context.Context, conn *websocket.Conn) {
 func (sd *ShellyPlusDevice) backoff(ctx context.Context) {
 	// Reset the backoff duration if the backoff has not been used for a
 	// suitable amount of time.
-	dt := time.Since(sd.lastBackoff)
+	dt := time.Since(sd.lastRestart)
 	if dt > sd.backoffDuration {
 		log.Printf("backoff reset after %s", dt)
 		sd.backoffDuration = minBackoff
@@ -405,6 +408,7 @@ func (sd *ShellyPlusDevice) backoff(ctx context.Context) {
 	if sd.backoffDuration > maxBackoff {
 		sd.backoffDuration = maxBackoff
 	}
+	sd.lastRestart = time.Now()
 }
 
 func (d *ShellyPlusDevice) SendFullUpdate() {
