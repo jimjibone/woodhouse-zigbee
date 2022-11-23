@@ -10,22 +10,17 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/jimjibone/queue/v2"
-	"github.com/jimjibone/woodhouse-4/cmd/woodhouse-bridge-zigbee/zigbee_old"
+	"github.com/jimjibone/woodhouse-4/cmd/woodhouse-bridge-zigbee/zigbee"
 	"github.com/jimjibone/woodhouse-4/wh"
 )
 
-const (
-	minBackoff = time.Second
-	maxBackoff = 30 * time.Second
-)
-
-type Zigbee struct {
+type ZigbeeMQTT struct {
 	MqttAddr        string
 	RootTopic       string
 	lastBackoff     time.Time
 	backoffDuration time.Duration
 	bridge          *wh.Bridge
-	devices         map[string]zigbee_old.ZigbeeDevice // devices with their IEEE address as the key.
+	devices         map[string]*zigbee.ZigbeeDevice // devices with their IEEE address as the key.
 	publish         *queue.Queue[publishMessage]
 }
 
@@ -34,12 +29,12 @@ type publishMessage struct {
 	Payload []byte
 }
 
-func (zb *Zigbee) Run(ctx context.Context, bridge *wh.Bridge) error {
+func (zb *ZigbeeMQTT) Run(ctx context.Context, bridge *wh.Bridge) error {
 	log.Printf("zigbee started")
 	defer log.Printf("zigbee finished")
 
 	zb.bridge = bridge
-	zb.devices = make(map[string]zigbee_old.ZigbeeDevice)
+	zb.devices = make(map[string]*zigbee.ZigbeeDevice)
 	zb.publish = queue.New[publishMessage]()
 	zb.publish.Discard(true)
 
@@ -70,7 +65,7 @@ func (zb *Zigbee) Run(ctx context.Context, bridge *wh.Bridge) error {
 	}
 }
 
-func (zb *Zigbee) connect(ctx context.Context) (client mqtt.Client, err error) {
+func (zb *ZigbeeMQTT) connect(ctx context.Context) (client mqtt.Client, err error) {
 	// Connect to the MQTT server.
 	log.Printf("connecting to: %s", zb.MqttAddr)
 	opts := mqtt.NewClientOptions().AddBroker(zb.MqttAddr).SetClientID("woodhouse-bridge-zigbee")
@@ -92,7 +87,7 @@ func (zb *Zigbee) connect(ctx context.Context) (client mqtt.Client, err error) {
 	return client, nil
 }
 
-func (zb *Zigbee) backoff(ctx context.Context) {
+func (zb *ZigbeeMQTT) backoff(ctx context.Context) {
 	// Reset the backoff duration if the backoff has not been used for a
 	// suitable amount of time.
 	dt := time.Since(zb.lastBackoff)
@@ -115,7 +110,7 @@ func (zb *Zigbee) backoff(ctx context.Context) {
 	}
 }
 
-func (zb *Zigbee) run(ctx context.Context, client mqtt.Client) error {
+func (zb *ZigbeeMQTT) run(ctx context.Context, client mqtt.Client) error {
 	log.Printf("connected!")
 
 	// Wait for something to publish or the context to be done.
@@ -133,7 +128,7 @@ func (zb *Zigbee) run(ctx context.Context, client mqtt.Client) error {
 	}
 }
 
-func (zb *Zigbee) messageHandler(client mqtt.Client, msg mqtt.Message) {
+func (zb *ZigbeeMQTT) messageHandler(client mqtt.Client, msg mqtt.Message) {
 	topicParts := strings.Split(msg.Topic(), "/")
 	if len(topicParts) > 0 && topicParts[0] != zb.RootTopic {
 		log.Printf("ERROR: received unexpected root topic: %s", msg.Topic())
@@ -150,7 +145,7 @@ func (zb *Zigbee) messageHandler(client mqtt.Client, msg mqtt.Message) {
 		}
 
 		if len(topicParts) > 2 && topicParts[2] == "devices" {
-			zb.handleDevicesInfos(msg.Payload())
+			zb.handleDeviceInfos(msg.Payload())
 			return
 		}
 
@@ -171,10 +166,10 @@ func (zb *Zigbee) messageHandler(client mqtt.Client, msg mqtt.Message) {
 	// log.Printf("ERROR: received unexpected topic: %s", msg.Topic())
 }
 
-func (zb *Zigbee) findDeviceByName(name string) zigbee_old.ZigbeeDevice {
+func (zb *ZigbeeMQTT) findDeviceByName(name string) *zigbee.ZigbeeDevice {
 	if name != "" {
 		for _, dev := range zb.devices {
-			if dev.FriendlyName() == name {
+			if dev.Name() == name {
 				return dev
 			}
 		}
@@ -182,7 +177,7 @@ func (zb *Zigbee) findDeviceByName(name string) zigbee_old.ZigbeeDevice {
 	return nil
 }
 
-func (zb *Zigbee) handleState(online bool) {
+func (zb *ZigbeeMQTT) handleState(online bool) {
 	if online {
 		log.Printf("zigbee2mqtt came online")
 	} else {
@@ -190,10 +185,10 @@ func (zb *Zigbee) handleState(online bool) {
 	}
 }
 
-func (zb *Zigbee) handleDevicesInfos(payload []byte) {
+func (zb *ZigbeeMQTT) handleDeviceInfos(payload []byte) {
 	// log.Printf("device infos: %s", payload)
 
-	var devices []*zigbee_old.DeviceInfo
+	var devices []zigbee.DeviceInfo
 	if err := json.Unmarshal(payload, &devices); err != nil {
 		log.Printf("ERROR: failed to unmarshal device infos: %v", err)
 		return
@@ -201,53 +196,54 @@ func (zb *Zigbee) handleDevicesInfos(payload []byte) {
 
 	log.Printf("device infos: %d", len(devices))
 	for i, dev := range devices {
-		fmt.Printf("  %d: %s\n", i, dev.LongString("  "))
+		fmt.Printf("  %d: %+v\n", i, dev)
 	}
 
 	// Update or create devices.
 	for _, info := range devices {
-		if info.Definition != nil {
-			if dev, found := zb.devices[info.IEEEAddress]; found {
-				dev.UpdateInfo(info)
-			} else {
-				dev := zigbee_old.CreateDevice(info, zb.publishHandler)
-				zb.devices[info.IEEEAddress] = dev
-				zb.bridge.AddDevice(dev.DeviceID(), dev)
+		if dev, found := zb.devices[info.IEEEAddress]; found {
+			dev.UpdateInfo(info)
+		} else {
+			dev := zigbee.NewZigbeeDevice(zb.publishHandler)
+			dev.UpdateInfo(info)
+			if err := json.Unmarshal(payload, &devices); err != nil {
+				log.Printf("ERROR: failed to update device %q info: %v", info.FriendlyName, err)
+				continue
 			}
+			zb.devices[info.IEEEAddress] = dev
+			// zb.bridge.AddDevice(dev.ID(), dev)
 		}
 	}
 }
 
-func (zb *Zigbee) handleDeviceState(friendlyName string, payload []byte) {
+func (zb *ZigbeeMQTT) handleDeviceState(friendlyName string, payload []byte) {
 	// log.Printf("device state: %s: %s", friendlyName, payload)
 
-	var state zigbee_old.DeviceState
+	var state zigbee.DeviceState
 	if err := json.Unmarshal(payload, &state); err != nil {
 		log.Printf("ERROR: failed to unmarshal device state: %v", err)
 		return
 	}
 
 	// log.Printf("device state: %s\n%s", friendlyName, payload)
-	log.Printf("device state: %s\n%s", friendlyName, state.LongString("  "))
+	log.Printf("device state: %s\n%s", friendlyName, state.String())
 
 	// Update and possibly add devices.
 	if dev := zb.findDeviceByName(friendlyName); dev != nil {
-		dev.UpdateState(&state)
+		dev.UpdateState(state)
 
-		// if !dev.Added {
-		// 	// Add the device to the bridge now as we should now have its info
-		// 	// and state.
-		// 	dev.Added = true
-		// 	if err := bd.br.AddDevice(dev); err != nil {
-		// 		log.Printf("ERROR: failed to add device to bridge: %v", err)
-		// 	}
-		// }
+		if !dev.Added {
+			// Add the device to the bridge now as we should now have its info
+			// and state.
+			dev.Added = true
+			zb.bridge.AddDevice(dev.ID(), dev)
+		}
 	} else {
-		log.Printf("ERROR: received device state for unknown device: %s\n%s", friendlyName, state.LongString("  "))
+		log.Printf("ERROR: received device state for unknown device: %s\n%s", friendlyName, state.String())
 	}
 }
 
-func (zb *Zigbee) publishHandler(topic string, payload []byte) {
+func (zb *ZigbeeMQTT) publishHandler(topic string, payload []byte) {
 	zb.publish.Push(publishMessage{
 		Topic:   topic,
 		Payload: payload,

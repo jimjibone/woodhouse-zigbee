@@ -36,6 +36,15 @@ func main() {
 				Value: "Zigbee",
 			},
 			&cli.StringFlag{
+				Name:  "ws-addr",
+				Usage: "websocket server address",
+				Value: "localhost:8080",
+			},
+			&cli.BoolFlag{
+				Name:  "use-mqtt",
+				Usage: "use mqtt connection instead of websockets",
+			},
+			&cli.StringFlag{
 				Name:  "mqtt-server",
 				Usage: "mqtt server address",
 				Value: "mqtt://localhost:1883",
@@ -77,13 +86,29 @@ func main() {
 			// Run the zigbee stuff.
 			wg.Add(1)
 			go func() {
-				zigbee := Zigbee{
-					MqttAddr:  args.String("mqtt-server"),
-					RootTopic: args.String("mqtt-topic"),
-				}
-				err := zigbee.Run(ctx, bridge)
-				if err != nil {
-					errs <- err
+				if args.Bool("use-mqtt") {
+					// Use MQTT for zigbee network data and requests.
+					// Note: The websocket connection has a more reliable API
+					// formatting and reports the state of all devices
+					// regardless of configuration. MQTT data on the other hand
+					// can vary depending on user preference.
+					zigbee := ZigbeeMQTT{
+						MqttAddr:  args.String("mqtt-server"),
+						RootTopic: args.String("mqtt-topic"),
+					}
+					err := zigbee.Run(ctx, bridge)
+					if err != nil {
+						errs <- err
+					}
+				} else {
+					// Use websockets for zigbee network data and requests.
+					zigbee := ZigbeeWebsockets{
+						Addr: args.String("ws-addr"),
+					}
+					err := zigbee.Run(ctx, bridge)
+					if err != nil {
+						errs <- err
+					}
 				}
 				wg.Done()
 			}()
