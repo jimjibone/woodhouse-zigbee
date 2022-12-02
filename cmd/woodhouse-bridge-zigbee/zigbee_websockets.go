@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -142,7 +143,11 @@ func (zb *ZigbeeWebsockets) recv(ctx context.Context, conn *websocket.Conn) {
 
 		default:
 			// log.Printf("----> recv: %s", message)
-			zb.handleDeviceState(frame.Topic, frame.Payload)
+			if strings.HasSuffix(frame.Topic, "/availability") {
+				zb.handleDeviceAvailability(strings.TrimSuffix(frame.Topic, "/availability"), frame.Payload)
+			} else {
+				zb.handleDeviceState(frame.Topic, frame.Payload)
+			}
 		}
 	}
 }
@@ -199,6 +204,22 @@ func (zb *ZigbeeWebsockets) handleDeviceInfos(payload []byte) {
 			zb.devices[info.IEEEAddress] = dev
 			// zb.bridge.AddDevice(dev.ID(), dev)
 		}
+	}
+}
+
+func (zb *ZigbeeWebsockets) handleDeviceAvailability(friendlyName string, payload []byte) {
+	// Update and possibly add devices.
+	if dev := zb.findDeviceByName(friendlyName); dev != nil {
+		switch string(payload) {
+		case `"online"`:
+			dev.UpdateOnline(true)
+		case `"offline"`:
+			dev.UpdateOnline(false)
+		default:
+			log.Printf("ERROR: received unexpected device availability for unknown device: %q %s", friendlyName, payload)
+		}
+	} else {
+		log.Printf("ERROR: received device availability for unknown device: %q %s", friendlyName, payload)
 	}
 }
 

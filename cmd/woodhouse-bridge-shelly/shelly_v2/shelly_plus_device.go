@@ -11,6 +11,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	api "github.com/jimjibone/woodhouse-4/api/go"
+	"github.com/jimjibone/woodhouse-4/apitools"
 	"github.com/jimjibone/woodhouse-4/wh"
 )
 
@@ -30,6 +31,8 @@ type ShellyPlusDevice struct {
 	description     string
 	connMu          sync.RWMutex
 	conn            *websocket.Conn
+	online          bool
+	lastSeen        time.Time
 	inputs          map[int]*InputValue
 	scripts         map[int]*ScriptValue
 	switches        map[int]*SwitchValue
@@ -156,6 +159,10 @@ func (d *ShellyPlusDevice) run(ctx context.Context) {
 			// Receive updates and send requests.
 			d.recv(ctx, conn)
 		}
+
+		// Set the device as offline.
+		d.online = false
+		d.UpdateState(nil)
 
 		// Check if we're done.
 		select {
@@ -338,6 +345,8 @@ func (d *ShellyPlusDevice) connect() *websocket.Conn {
 		log.Printf("new switch %d, name: %q, ts: %s, state: %t, temp: %0.1f °C, voltage: %.1f V, current: %.1f A, avg.power: %.1f W, avg.energy.total: %.3f Wh", id, val.Name, val.Timestamp.Format("2006/01/02 15:04:05"), val.State, val.Temperature, val.Voltage, val.Current, val.AveragePower, val.AverageEnergy.Total)
 	}
 
+	d.online = true
+	d.lastSeen = time.Now()
 	d.UpdateState(nil)
 
 	return conn
@@ -380,6 +389,8 @@ func (d *ShellyPlusDevice) recv(ctx context.Context, conn *websocket.Conn) {
 			} else {
 				// log.Printf("%s --> recv notification frame: %+v", d.hostname, frame)
 				if frame.NotifyStatus != nil {
+					d.online = true
+					d.lastSeen = time.Now()
 					d.UpdateState(frame.NotifyStatus)
 				}
 			}
@@ -431,6 +442,8 @@ func (d *ShellyPlusDevice) UpdateInfo() {
 func (d *ShellyPlusDevice) UpdateState(next *NotifyStatus) {
 	update := &api.DeviceState{
 		DeviceId:   d.hostname,
+		Online:     d.online,
+		LastSeen:   apitools.TimeToTimestamp(d.lastSeen),
 		FullUpdate: next == nil,
 		Values:     []*api.DeviceValue{},
 	}
@@ -532,11 +545,9 @@ func (d *ShellyPlusDevice) UpdateState(next *NotifyStatus) {
 		}
 	}
 
-	if len(update.Values) > 0 {
-		err := d.comms.SendState(update)
-		if err != nil {
-			log.Printf("ERROR: device %s: failed to send state: %s", d.hostname, err)
-		}
+	err := d.comms.SendState(update)
+	if err != nil {
+		log.Printf("ERROR: device %s: failed to send state: %s", d.hostname, err)
 	}
 }
 

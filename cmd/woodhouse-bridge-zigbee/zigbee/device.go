@@ -7,6 +7,7 @@ import (
 	"time"
 
 	api "github.com/jimjibone/woodhouse-4/api/go"
+	"github.com/jimjibone/woodhouse-4/apitools"
 	"github.com/jimjibone/woodhouse-4/cmd/woodhouse-bridge-zigbee/zigbee/converters"
 	"github.com/jimjibone/woodhouse-4/wh"
 	"google.golang.org/protobuf/proto"
@@ -18,6 +19,7 @@ type ZigbeeDevice struct {
 	id             string
 	name           string
 	description    string
+	online         bool
 	lastSeen       time.Time
 	converters     map[string]converters.Converter
 	values         map[string]*api.DeviceValue
@@ -54,6 +56,8 @@ func (zd *ZigbeeDevice) SendFullUpdate() {
 
 	msg := &api.DeviceState{
 		DeviceId:   zd.ID(),
+		Online:     zd.online,
+		LastSeen:   apitools.TimeToTimestamp(zd.lastSeen),
 		FullUpdate: true,
 		Values:     []*api.DeviceValue{},
 	}
@@ -160,6 +164,25 @@ func (zd *ZigbeeDevice) UpdateInfo(info DeviceInfo) error {
 	return nil
 }
 
+func (zd *ZigbeeDevice) UpdateOnline(online bool) {
+	if zd.online != online {
+		zd.online = online
+
+		log.Printf("device %s online: %t", zd.id, online)
+
+		msg := &api.DeviceState{
+			DeviceId:   zd.ID(),
+			Online:     zd.online,
+			LastSeen:   apitools.TimeToTimestamp(zd.lastSeen),
+			FullUpdate: false,
+		}
+		err := zd.comms.SendState(msg)
+		if err != nil {
+			log.Printf("ERROR: device %s failed to send state: %s", zd.id, err)
+		}
+	}
+}
+
 func (zd *ZigbeeDevice) UpdateState(state DeviceState) error {
 	changed := false
 	if !zd.lastSeen.After(state.LastSeen) {
@@ -228,6 +251,8 @@ func (zd *ZigbeeDevice) UpdateState(state DeviceState) error {
 	if changed && zd.comms != nil {
 		msg := &api.DeviceState{
 			DeviceId:   zd.ID(),
+			Online:     zd.online,
+			LastSeen:   apitools.TimeToTimestamp(zd.lastSeen),
 			FullUpdate: true,
 			Values:     []*api.DeviceValue{},
 		}
