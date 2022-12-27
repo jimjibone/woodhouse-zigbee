@@ -5,8 +5,10 @@ import (
 	"log"
 	"math"
 	"strings"
+	"time"
 
 	api "github.com/jimjibone/woodhouse-4/api/go"
+	"github.com/jimjibone/woodhouse-4/apitools"
 	"github.com/jimjibone/woodhouse-4/wh"
 )
 
@@ -27,6 +29,8 @@ type ShellyDimmer2 struct {
 	hostname string
 	ip       string
 	name     string
+	online   bool
+	lastSeen time.Time
 	state    ShellyDimmer2State
 }
 
@@ -94,13 +98,29 @@ func (d *ShellyDimmer2) sendAndUpdateState(params string, fullUpdate bool) error
 	next := ShellyDimmer2State{}
 	err := d.rest.GetJSON(endpoint, &next)
 	if err != nil {
+		if d.online {
+			d.online = false
+			err = d.comms.SendState(&api.DeviceState{
+				DeviceId:   d.hostname,
+				FullUpdate: fullUpdate,
+				Online:     d.online,
+				LastSeen:   apitools.TimeToTimestamp(d.lastSeen),
+			})
+			if err != nil {
+				log.Printf("ERROR: device %s: failed to send state: %s", d.hostname, err)
+			}
+		}
 		return err
 	}
 
 	// Check for differences.
+	d.online = true
+	d.lastSeen = time.Now()
 	update := &api.DeviceState{
 		DeviceId:   d.hostname,
 		FullUpdate: fullUpdate,
+		Online:     d.online,
+		LastSeen:   apitools.TimeToTimestamp(d.lastSeen),
 	}
 	if fullUpdate || next.IsOn != d.state.IsOn {
 		update.Values = append(update.Values, &api.DeviceValue{
