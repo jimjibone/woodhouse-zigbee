@@ -15,6 +15,7 @@ import (
 )
 
 type ZigbeeMQTT struct {
+	WebAddr         string
 	MqttAddr        string
 	RootTopic       string
 	lastBackoff     time.Time
@@ -204,7 +205,7 @@ func (zb *ZigbeeMQTT) handleDeviceInfos(payload []byte) {
 		if dev, found := zb.devices[info.IEEEAddress]; found {
 			dev.UpdateInfo(info)
 		} else {
-			dev := zigbee.NewZigbeeDevice(zb.publishHandler)
+			dev := zigbee.NewZigbeeDevice(zb.WebAddr, zb.publishHandler)
 			dev.UpdateInfo(info)
 			if err := json.Unmarshal(payload, &devices); err != nil {
 				log.Printf("ERROR: failed to update device %q info: %v", info.FriendlyName, err)

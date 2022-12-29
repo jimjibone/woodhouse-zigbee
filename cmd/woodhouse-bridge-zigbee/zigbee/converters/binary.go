@@ -25,16 +25,28 @@ func NewBinary(data []byte) (*Binary, error) {
 	if err := json.Unmarshal(data, &tmp); err != nil {
 		return nil, err
 	}
+	// value_on and value_off seem to be inverted for contact sensors for some
+	// reason - this is the opposite to what is shown in zigbee2mqtt. So if the
+	// value_on/value_off values are bools then ignore the info for this and use
+	// their logical values, e.g. true == true, not true == false, etc.
 	zc := &Binary{}
-	if v, err := ParseBinaryValue(tmp.ValueOn); err != nil {
-		return nil, fmt.Errorf("value_on %w", err)
+	if _, isBool := tmp.ValueOn.(bool); isBool {
+		zc.ValueOn = "true"
 	} else {
-		zc.ValueOn = v
+		if v, err := ParseBinaryValue(tmp.ValueOn); err != nil {
+			return nil, fmt.Errorf("value_on %w", err)
+		} else {
+			zc.ValueOn = v
+		}
 	}
-	if v, err := ParseBinaryValue(tmp.ValueOff); err != nil {
-		return nil, fmt.Errorf("value_off %w", err)
+	if _, isBool := tmp.ValueOff.(bool); isBool {
+		zc.ValueOff = "false"
 	} else {
-		zc.ValueOff = v
+		if v, err := ParseBinaryValue(tmp.ValueOff); err != nil {
+			return nil, fmt.Errorf("value_off %w", err)
+		} else {
+			zc.ValueOff = v
+		}
 	}
 	zc.ValueToggle = tmp.ValueToggle
 	return zc, nil

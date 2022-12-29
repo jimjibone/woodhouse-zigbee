@@ -36,6 +36,11 @@ func main() {
 				Value: "Zigbee",
 			},
 			&cli.StringFlag{
+				Name:     "web-addr",
+				Usage:    "external web server address",
+				Required: true,
+			},
+			&cli.StringFlag{
 				Name:  "ws-addr",
 				Usage: "websocket server address",
 				Value: "localhost:8080",
@@ -93,6 +98,7 @@ func main() {
 					// regardless of configuration. MQTT data on the other hand
 					// can vary depending on user preference.
 					zigbee := ZigbeeMQTT{
+						WebAddr:   args.String("web-addr"),
 						MqttAddr:  args.String("mqtt-server"),
 						RootTopic: args.String("mqtt-topic"),
 					}
@@ -103,7 +109,8 @@ func main() {
 				} else {
 					// Use websockets for zigbee network data and requests.
 					zigbee := ZigbeeWebsockets{
-						Addr: args.String("ws-addr"),
+						WebAddr: args.String("web-addr"),
+						WsAddr:  args.String("ws-addr"),
 					}
 					err := zigbee.Run(ctx, bridge)
 					if err != nil {

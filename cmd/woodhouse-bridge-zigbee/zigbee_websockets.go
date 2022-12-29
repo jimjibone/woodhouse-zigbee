@@ -21,7 +21,8 @@ const (
 )
 
 type ZigbeeWebsockets struct {
-	Addr            string
+	WebAddr         string
+	WsAddr          string
 	RootTopic       string
 	lastBackoff     time.Time
 	lastRestart     time.Time
@@ -77,7 +78,7 @@ func (zb *ZigbeeWebsockets) Run(ctx context.Context, bridge *wh.Bridge) error {
 }
 
 func (zb *ZigbeeWebsockets) connect() *websocket.Conn {
-	conn, _, err := websocket.DefaultDialer.Dial(fmt.Sprintf("ws://%s/api", zb.Addr), nil)
+	conn, _, err := websocket.DefaultDialer.Dial(fmt.Sprintf("ws://%s/api", zb.WsAddr), nil)
 	if err != nil {
 		log.Println("ERROR: dial:", err)
 		return nil
@@ -195,7 +196,7 @@ func (zb *ZigbeeWebsockets) handleDeviceInfos(payload []byte) {
 		if dev, found := zb.devices[info.IEEEAddress]; found {
 			dev.UpdateInfo(info)
 		} else {
-			dev := zigbee.NewZigbeeDevice(zb.requestHandler)
+			dev := zigbee.NewZigbeeDevice(zb.WebAddr, zb.requestHandler)
 			dev.UpdateInfo(info)
 			if err := json.Unmarshal(payload, &devices); err != nil {
 				log.Printf("ERROR: failed to update device %q info: %v", info.FriendlyName, err)

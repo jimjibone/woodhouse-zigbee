@@ -19,6 +19,7 @@ type ZigbeeDevice struct {
 	id             string
 	name           string
 	description    string
+	baseAddr       string
 	online         bool
 	lastSeen       time.Time
 	converters     map[string]converters.Converter
@@ -26,8 +27,9 @@ type ZigbeeDevice struct {
 	requestHandler func(topic string, payload []byte)
 }
 
-func NewZigbeeDevice(requestHandler func(topic string, payload []byte)) *ZigbeeDevice {
+func NewZigbeeDevice(baseAddr string, requestHandler func(topic string, payload []byte)) *ZigbeeDevice {
 	zd := &ZigbeeDevice{
+		baseAddr:       baseAddr,
 		converters:     make(map[string]converters.Converter),
 		values:         make(map[string]*api.DeviceValue),
 		requestHandler: requestHandler,
@@ -49,6 +51,7 @@ func (zd *ZigbeeDevice) SendFullUpdate() {
 		DeviceId:    zd.ID(),
 		Name:        zd.name,
 		Description: zd.description,
+		Url:         fmt.Sprintf("http://%s/#/device/%s/info", zd.baseAddr, zd.id),
 	})
 	if err != nil {
 		log.Printf("ERROR: device %s failed to send info: %s", zd.id, err)
@@ -156,6 +159,7 @@ func (zd *ZigbeeDevice) UpdateInfo(info DeviceInfo) error {
 			DeviceId:    zd.ID(),
 			Name:        zd.name,
 			Description: zd.description,
+			Url:         fmt.Sprintf("http://%s/#/device/%s/info", zd.baseAddr, zd.id),
 		})
 		if err != nil {
 			log.Printf("ERROR: device %s failed to send info: %s", zd.id, err)

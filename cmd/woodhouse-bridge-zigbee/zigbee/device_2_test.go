@@ -16,7 +16,7 @@ func TestDevice2(t *testing.T) {
 	}
 	t.Logf("device 2 info: %+v", info)
 
-	dev := zigbee.NewZigbeeDevice(nil)
+	dev := zigbee.NewZigbeeDevice("", nil)
 	err = dev.UpdateInfo(info)
 	if err != nil {
 		t.Fatalf("failed to update device 2 info: %v", err)
