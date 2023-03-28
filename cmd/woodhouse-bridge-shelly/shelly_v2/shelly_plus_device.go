@@ -476,6 +476,30 @@ func (d *ShellyPlusDevice) UpdateState(next *NotifyStatus) {
 					Value: val.State,
 				},
 			})
+			update.Values = append(update.Values, &api.DeviceValue{
+				Name: val.GetName() + " Voltage",
+				Number: &api.NumberValue{
+					Value: val.Voltage,
+				},
+			})
+			update.Values = append(update.Values, &api.DeviceValue{
+				Name: val.GetName() + " Current",
+				Number: &api.NumberValue{
+					Value: val.Current,
+				},
+			})
+			update.Values = append(update.Values, &api.DeviceValue{
+				Name: val.GetName() + " Power",
+				Number: &api.NumberValue{
+					Value: val.AveragePower,
+				},
+			})
+			update.Values = append(update.Values, &api.DeviceValue{
+				Name: val.GetName() + " Temperature",
+				Number: &api.NumberValue{
+					Value: val.Temperature,
+				},
+			})
 		}
 	} else {
 		// Update matching inputs.
