@@ -138,12 +138,20 @@ func (d *ShellyDimmer2) sendAndUpdateState(params string, fullUpdate bool) error
 			},
 		})
 	}
+	if fullUpdate || next.Transition != d.state.Transition {
+		update.Values = append(update.Values, &api.DeviceValue{
+			Name: "Transition",
+			Number: &api.NumberValue{
+				Value: float64(next.Transition),
+			},
+		})
+	}
 
 	// Update the stored state.
 	d.state = next
 
 	if len(update.Values) > 0 {
-		log.Printf("device %s: name: %s, on: %t, bri: %d", d.hostname, d.name, d.state.IsOn, d.state.Brightness)
+		log.Printf("device %s: name: %s, on: %t, bri: %d, trans: %d", d.hostname, d.name, d.state.IsOn, d.state.Brightness, d.state.Transition)
 		err = d.comms.SendState(update)
 		if err != nil {
 			log.Printf("ERROR: device %s: failed to send state: %s", d.hostname, err)
@@ -174,6 +182,13 @@ func (d *ShellyDimmer2) HandleRequest(request *api.DeviceRequest) error {
 			}
 			bri := math.Max(math.Min(float64(req.Number.Value), 100), 0)
 			params = append(params, fmt.Sprintf("brightness=%.0f", bri))
+
+		case "Transition":
+			if req.Number == nil {
+				return fmt.Errorf("Transition value must be a number")
+			}
+			trans := math.Max(math.Min(float64(req.Number.Value), 5000), 0)
+			params = append(params, fmt.Sprintf("transition=%.0f", trans))
 
 		default:
 			return fmt.Errorf("value %s not recognised", req.Name)
