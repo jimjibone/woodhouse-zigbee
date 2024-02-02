@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	minBackoff = time.Second
+	minBackoff = 3 * time.Second
 	maxBackoff = 30 * time.Second
 )
 
@@ -48,6 +48,8 @@ func NewShellyPlusDevice(hostname, ip, name, app string) Device {
 		description = "Shelly Plus 1PM"
 	case "Plus2PM":
 		description = "Shelly Plus 2PM"
+	case "PlusPlugUK":
+		description = "Shelly Plus Plug UK"
 	default:
 		log.Printf("WARN: unknown app %q for %s", app, hostname)
 	}
@@ -180,7 +182,6 @@ func (d *ShellyPlusDevice) connect() *websocket.Conn {
 	conn, _, err := websocket.DefaultDialer.Dial(fmt.Sprintf("ws://%s/rpc", d.ip), nil)
 	if err != nil {
 		log.Println("ERROR: dial:", err)
-		conn.Close()
 		return nil
 	}
 
