@@ -2,7 +2,8 @@ package shelly_v2
 
 import (
 	"encoding/json"
-	"log"
+
+	"github.com/jimjibone/woodhouse-4/log"
 )
 
 type FrameType int
@@ -20,7 +21,7 @@ func DetectFrameType(data []byte) FrameType {
 	}{}
 	err := json.Unmarshal(data, &tmp)
 	if err != nil {
-		log.Println("ERROR: IsResponseFrame unmarshal:", err)
+		log.Errorf("DetectFrameType unmarshal failed:", err)
 		return UnknownFrameType
 	}
 	if tmp.ID != nil {

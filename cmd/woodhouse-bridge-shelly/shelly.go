@@ -3,19 +3,19 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
 	"github.com/grandcat/zeroconf"
 	"github.com/jimjibone/woodhouse-4/cmd/woodhouse-bridge-shelly/shelly_v1"
 	"github.com/jimjibone/woodhouse-4/cmd/woodhouse-bridge-shelly/shelly_v2"
+	"github.com/jimjibone/woodhouse-4/log"
 	"github.com/jimjibone/woodhouse-4/wh"
 )
 
 func shellyStuff(ctx context.Context, bridge *wh.Bridge, doUpdatesChan <-chan bool) error {
-	log.Printf("shelly started")
-	defer log.Printf("shelly finished")
+	log.Infof("shelly started")
+	defer log.Infof("shelly finished")
 
 	// Use mDNS to discover Shelly devices.
 	resolver, err := zeroconf.NewResolver(nil)
@@ -96,11 +96,11 @@ func handleDiscovery(bridge *wh.Bridge, ip, hostname string) (deviceID string, d
 		rest := shelly_v1.Rest{IP: ip}
 		settings, err := rest.GetSettings()
 		if err != nil {
-			log.Printf("ERROR: failed to get settings for %s: %s", ip, err)
+			log.Errorf("failed to get settings for %s: %s", ip, err)
 			return "", nil, nil
 		}
 
-		log.Printf("discovered v1 %s at http://%s (name: %s)", hostname, ip, settings.Name)
+		log.Infof("discovered v1 %s at http://%s (name: %s)", hostname, ip, settings.Name)
 
 		return hostname, shelly_v1.Generate(settings.Device.Type, hostname, ip), nil
 	}
@@ -110,16 +110,16 @@ func handleDiscovery(bridge *wh.Bridge, ip, hostname string) (deviceID string, d
 		rest := shelly_v2.Rest{IP: ip}
 		info, err := rest.GetShelly()
 		if err != nil {
-			log.Printf("ERROR: failed to get shelly info for %s: %s", ip, err)
+			log.Errorf("failed to get shelly info for %s: %s", ip, err)
 			return "", nil, nil
 		}
 
-		log.Printf("discovered v2 %s at http://%s (name: %s, app: %s)", hostname, ip, info.Name, info.App)
+		log.Infof("discovered v2 %s at http://%s (name: %s, app: %s)", hostname, ip, info.Name, info.App)
 
 		return hostname, nil, shelly_v2.NewShellyPlusDevice(hostname, ip, info.Name, info.App)
 	}
 
-	log.Printf("other thing %s at http://%s", hostname, ip)
+	log.Warnf("other thing %s at http://%s", hostname, ip)
 
 	return "", nil, nil
 }

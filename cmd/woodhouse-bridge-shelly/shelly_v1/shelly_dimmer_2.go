@@ -2,13 +2,13 @@ package shelly_v1
 
 import (
 	"fmt"
-	"log"
 	"math"
 	"strings"
 	"time"
 
 	api "github.com/jimjibone/woodhouse-4/api/go"
 	"github.com/jimjibone/woodhouse-4/apitools"
+	"github.com/jimjibone/woodhouse-4/log"
 	"github.com/jimjibone/woodhouse-4/wh"
 )
 
@@ -58,17 +58,17 @@ func (d *ShellyDimmer2) SendFullUpdate() {
 func (d *ShellyDimmer2) UpdateInfo() {
 	// status, err := d.rest.GetStatus()
 	// if err != nil {
-	// 	log.Printf("ERROR: device %s failed to get status: %s", d.hostname, err)
+	// 	log.Errorf("device %s failed to get status: %s", d.hostname, err)
 	// 	return
 	// }
 
 	settings, err := d.rest.GetSettings()
 	if err != nil {
-		log.Printf("ERROR: device %s failed to get settings: %s", d.hostname, err)
+		log.Errorf("device %s failed to get settings: %s", d.hostname, err)
 		return
 	}
 	d.name = settings.Name
-	log.Printf("received %s settings: %s", d.hostname, settings.Name)
+	log.Infof("received %s settings: %s", d.hostname, settings.Name)
 
 	err = d.comms.SendInfo(&api.DeviceInfo{
 		DeviceId:    d.hostname,
@@ -77,14 +77,14 @@ func (d *ShellyDimmer2) UpdateInfo() {
 		Url:         "http://" + d.ip,
 	})
 	if err != nil {
-		log.Printf("ERROR: device %s: failed to send info: %s", d.hostname, err)
+		log.Errorf("device %s: failed to send info: %s", d.hostname, err)
 	}
 }
 
 func (d *ShellyDimmer2) UpdateState(fullUpdate bool) {
 	err := d.sendAndUpdateState("", fullUpdate)
 	if err != nil {
-		log.Printf("ERROR: device %s failed to get state: %s", d.hostname, err)
+		log.Errorf("device %s failed to get state: %s", d.hostname, err)
 	}
 }
 
@@ -107,7 +107,7 @@ func (d *ShellyDimmer2) sendAndUpdateState(params string, fullUpdate bool) error
 				LastSeen:   apitools.TimeToTimestamp(d.lastSeen),
 			})
 			if err != nil {
-				log.Printf("ERROR: device %s: failed to send state: %s", d.hostname, err)
+				log.Errorf("device %s: failed to send state: %s", d.hostname, err)
 			}
 		}
 		return err
@@ -151,10 +151,10 @@ func (d *ShellyDimmer2) sendAndUpdateState(params string, fullUpdate bool) error
 	d.state = next
 
 	if len(update.Values) > 0 {
-		log.Printf("device %s: name: %s, on: %t, bri: %d, trans: %d", d.hostname, d.name, d.state.IsOn, d.state.Brightness, d.state.Transition)
+		log.Infof("device %s: name: %s, on: %t, bri: %d, trans: %d", d.hostname, d.name, d.state.IsOn, d.state.Brightness, d.state.Transition)
 		err = d.comms.SendState(update)
 		if err != nil {
-			log.Printf("ERROR: device %s: failed to send state: %s", d.hostname, err)
+			log.Errorf("device %s: failed to send state: %s", d.hostname, err)
 		}
 	}
 
@@ -197,10 +197,10 @@ func (d *ShellyDimmer2) HandleRequest(request *api.DeviceRequest) error {
 
 	if len(params) > 0 {
 		reqparams := strings.Join(params, "&")
-		log.Printf("device %s: name: %s, sending request: %s", d.hostname, d.name, reqparams)
+		log.Infof("device %s: name: %s, sending request: %s", d.hostname, d.name, reqparams)
 		err := d.sendAndUpdateState(reqparams, false)
 		if err != nil {
-			log.Printf("ERROR: device %s failed to set state: %s", d.hostname, err)
+			log.Errorf("device %s failed to set state: %s", d.hostname, err)
 			return err
 		}
 	}

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"os"
 	"os/signal"
 	"sync"
@@ -11,6 +10,7 @@ import (
 
 	api "github.com/jimjibone/woodhouse-4/api/go"
 	"github.com/jimjibone/woodhouse-4/apitools"
+	"github.com/jimjibone/woodhouse-4/log"
 	"github.com/jimjibone/woodhouse-4/wh"
 	"github.com/urfave/cli/v2"
 )
@@ -35,6 +35,20 @@ func main() {
 				Usage: "Name used by this bridge",
 				Value: "Shelly",
 			},
+			&cli.BoolFlag{
+				Name:    "debug",
+				Aliases: []string{"v"},
+				Usage:   "Enable debug logging",
+			},
+		},
+		Before: func(args *cli.Context) error {
+			// Setup logging.
+			if args.Bool("debug") {
+				log.SetOptions(log.WithMinLevel(log.DebugLevel))
+			} else {
+				log.SetOptions(log.WithMinLevel(log.InfoLevel))
+			}
+			return nil
 		},
 		Action: func(args *cli.Context) error {
 			// Create the main app context.

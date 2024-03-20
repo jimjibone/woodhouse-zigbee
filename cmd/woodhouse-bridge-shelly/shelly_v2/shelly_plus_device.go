@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"sort"
 	"sync"
 	"time"
@@ -12,6 +11,7 @@ import (
 	"github.com/gorilla/websocket"
 	api "github.com/jimjibone/woodhouse-4/api/go"
 	"github.com/jimjibone/woodhouse-4/apitools"
+	"github.com/jimjibone/woodhouse-4/log"
 	"github.com/jimjibone/woodhouse-4/wh"
 )
 
@@ -51,7 +51,7 @@ func NewShellyPlusDevice(hostname, ip, name, app string) Device {
 	case "PlusPlugUK":
 		description = "Shelly Plus Plug UK"
 	default:
-		log.Printf("WARN: unknown app %q for %s", app, hostname)
+		log.Warnf("unknown app %q for %s", app, hostname)
 	}
 	return &ShellyPlusDevice{
 		hostname:    hostname,
@@ -134,12 +134,12 @@ func (d *ShellyPlusDevice) Close() {
 func (d *ShellyPlusDevice) run(ctx context.Context) {
 	defer d.wg.Done()
 
-	log.Printf("%s started", d.hostname)
-	defer log.Printf("%s finished", d.hostname)
+	log.Infof("%s started", d.hostname)
+	defer log.Infof("%s finished", d.hostname)
 
 	for {
 		// Try to connect.
-		log.Printf("%s creating websocket", d.hostname)
+		log.Infof("%s creating websocket", d.hostname)
 		conn := d.connect()
 		if conn != nil {
 			d.connMu.Lock()
@@ -149,7 +149,7 @@ func (d *ShellyPlusDevice) run(ctx context.Context) {
 			// Close the websocket when the context is cancelled.
 			go func() {
 				<-ctx.Done()
-				log.Printf("%s closing websocket", d.hostname)
+				log.Infof("%s closing websocket", d.hostname)
 				d.connMu.Lock()
 				if d.conn != nil {
 					d.conn.Close()
@@ -181,43 +181,43 @@ func (d *ShellyPlusDevice) run(ctx context.Context) {
 func (d *ShellyPlusDevice) connect() *websocket.Conn {
 	conn, _, err := websocket.DefaultDialer.Dial(fmt.Sprintf("ws://%s/rpc", d.ip), nil)
 	if err != nil {
-		log.Println("ERROR: dial:", err)
+		log.Errorf("dial:", err)
 		return nil
 	}
 
 	err = conn.WriteMessage(websocket.TextMessage, []byte(`{"id":100, "src":"woodhouse", "method":"Shelly.GetConfig"}`))
 	if err != nil {
-		log.Println("ERROR: write:", err)
+		log.Errorf("write:", err)
 		conn.Close()
 		return nil
 	}
 
 	_, message, err := conn.ReadMessage()
 	if err != nil {
-		log.Println("ERROR: read:", err)
+		log.Errorf("read:", err)
 		conn.Close()
 		return nil
 	}
-	// log.Printf("%s --> recv: %s", d.hostname, message)
+	log.Debugf("%s --> recv: %s", d.hostname, message)
 
 	var frame ResponseFrame
 	err = json.Unmarshal(message, &frame)
 	if err != nil {
-		log.Println("ERROR: unmarshal:", err)
+		log.Errorf("unmarshal:", err)
 		conn.Close()
 		return nil
 	}
-	// log.Printf("config frame: %+v", frame)
+	log.Debugf("%s config frame: %+v", d.hostname, frame)
 
 	if frame.Result != nil {
 		var configResponse GetConfigResponse
 		err = json.Unmarshal(frame.Result, &configResponse)
 		if err != nil {
-			log.Println("ERROR: unmarshal:", err)
+			log.Errorf("unmarshal:", err)
 			conn.Close()
 			return nil
 		}
-		// log.Printf("system config: %+v", configResponse)
+		log.Debugf("%s system config: %+v", d.hostname, configResponse)
 
 		d.name = configResponse.System.Device.Name
 
@@ -246,36 +246,36 @@ func (d *ShellyPlusDevice) connect() *websocket.Conn {
 
 	err = conn.WriteMessage(websocket.TextMessage, []byte(`{"id":101, "src":"woodhouse", "method":"Shelly.GetStatus"}`))
 	if err != nil {
-		log.Println("ERROR: write:", err)
+		log.Errorf("write:", err)
 		conn.Close()
 		return nil
 	}
 
 	_, message, err = conn.ReadMessage()
 	if err != nil {
-		log.Println("ERROR: read:", err)
+		log.Errorf("read:", err)
 		conn.Close()
 		return nil
 	}
-	// log.Printf("%s --> recv: %s", d.hostname, message)
+	log.Debugf("%s --> recv: %s", d.hostname, message)
 
 	err = json.Unmarshal(message, &frame)
 	if err != nil {
-		log.Println("ERROR: unmarshal:", err)
+		log.Errorf("unmarshal:", err)
 		conn.Close()
 		return nil
 	}
-	// log.Printf("status frame: %+v", frame)
+	log.Debugf("%s status frame: %+v", d.hostname, frame)
 
 	if frame.Result != nil {
 		var statusResponse GetStatusResponse
 		err = json.Unmarshal(frame.Result, &statusResponse)
 		if err != nil {
-			log.Println("ERROR: unmarshal:", err)
+			log.Errorf("unmarshal:", err)
 			conn.Close()
 			return nil
 		}
-		// log.Printf("system status: %+v", statusResponse)
+		log.Debugf("%s system status: %+v", d.hostname, statusResponse)
 
 		for _, val := range statusResponse.Inputs {
 			if prev, found := d.inputs[val.ID]; found {
@@ -323,7 +323,7 @@ func (d *ShellyPlusDevice) connect() *websocket.Conn {
 	sort.Ints(ids)
 	for _, id := range ids {
 		val := d.inputs[id]
-		log.Printf("new input %d, name: %q, type: %s, invert: %t, ts: %s, state: %t", id, val.Name, val.Type, val.Invert, val.Timestamp.Format("2006/01/02 15:04:05"), val.State)
+		log.Infof("new input %d, name: %q, type: %s, invert: %t, ts: %s, state: %t", id, val.Name, val.Type, val.Invert, val.Timestamp.Format("2006/01/02 15:04:05"), val.State)
 	}
 
 	ids = nil
@@ -333,7 +333,7 @@ func (d *ShellyPlusDevice) connect() *websocket.Conn {
 	sort.Ints(ids)
 	for _, id := range ids {
 		val := d.scripts[id]
-		log.Printf("new script %d, name: %q, ts: %s, enable: %t, running %t", id, val.Name, val.Timestamp.Format("2006/01/02 15:04:05"), val.Enable, val.Running)
+		log.Infof("new script %d, name: %q, ts: %s, enable: %t, running %t", id, val.Name, val.Timestamp.Format("2006/01/02 15:04:05"), val.Enable, val.Running)
 	}
 
 	ids = nil
@@ -343,7 +343,7 @@ func (d *ShellyPlusDevice) connect() *websocket.Conn {
 	sort.Ints(ids)
 	for _, id := range ids {
 		val := d.switches[id]
-		log.Printf("new switch %d, name: %q, ts: %s, state: %t, temp: %0.1f °C, voltage: %.1f V, current: %.1f A, avg.power: %.1f W, avg.energy.total: %.3f Wh", id, val.Name, val.Timestamp.Format("2006/01/02 15:04:05"), val.State, val.Temperature, val.Voltage, val.Current, val.AveragePower, val.AverageEnergy.Total)
+		log.Infof("new switch %d, name: %q, ts: %s, state: %t, temp: %0.1f °C, voltage: %.1f V, current: %.1f A, avg.power: %.1f W, avg.energy.total: %.3f Wh", id, val.Name, val.Timestamp.Format("2006/01/02 15:04:05"), val.State, val.Temperature, val.Voltage, val.Current, val.AveragePower, val.AverageEnergy.Total)
 	}
 
 	d.online = true
@@ -363,21 +363,21 @@ func (d *ShellyPlusDevice) recv(ctx context.Context, conn *websocket.Conn) {
 
 		_, message, err := conn.ReadMessage()
 		if err != nil {
-			log.Printf("ERROR: %s read: %s", d.hostname, err)
+			log.Errorf("%s read: %s", d.hostname, err)
 			return
 		}
 		// log.Printf("%s --> recv: %s", d.hostname, message)
 
 		switch DetectFrameType(message) {
 		case UnknownFrameType:
-			log.Printf("WARN: %s unknown frame type for message: %s", d.hostname, message)
+			log.Warnf("%s unknown frame type for message: %s", d.hostname, message)
 
 		case ResponseFrameType:
-			log.Printf("%s --> recv response frame: %s", d.hostname, message)
+			log.Infof("%s --> recv response frame: %s", d.hostname, message)
 			// var frame ResponseFrame
 			// err = json.Unmarshal(message, &frame)
 			// if err != nil {
-			// 	log.Printf("WARN: %s unmarshal: %s, from message: %s", d.hostname, err, message)
+			// 	log.Warnf("%s unmarshal: %s, from message: %s", d.hostname, err, message)
 			// } else {
 			// 	log.Printf("%s --> recv response frame: %+v", d.hostname, frame)
 			// }
@@ -386,7 +386,7 @@ func (d *ShellyPlusDevice) recv(ctx context.Context, conn *websocket.Conn) {
 			var frame NotificationFrame
 			err = json.Unmarshal(message, &frame)
 			if err != nil {
-				log.Printf("WARN: %s unmarshal: %s, from message: %s", d.hostname, err, message)
+				log.Warnf("%s unmarshal: %s, from message: %s", d.hostname, err, message)
 			} else {
 				// log.Printf("%s --> recv notification frame: %+v", d.hostname, frame)
 				if frame.NotifyStatus != nil {
@@ -404,18 +404,18 @@ func (sd *ShellyPlusDevice) backoff(ctx context.Context) {
 	// suitable amount of time.
 	dt := time.Since(sd.lastRestart)
 	if dt > sd.backoffDuration {
-		log.Printf("backoff reset after %s", dt)
+		log.Infof("backoff reset after %s", dt)
 		sd.backoffDuration = minBackoff
 	}
 	sd.lastBackoff = time.Now()
-	log.Printf("starting backoff for %s", sd.backoffDuration)
+	log.Infof("starting backoff for %s", sd.backoffDuration)
 	timer := time.NewTimer(sd.backoffDuration)
 	defer timer.Stop()
 	select {
 	case <-ctx.Done():
 	case <-timer.C:
 	}
-	log.Printf("backoff finished")
+	log.Infof("backoff finished")
 	sd.backoffDuration = sd.backoffDuration * 2
 	if sd.backoffDuration > maxBackoff {
 		sd.backoffDuration = maxBackoff
@@ -436,7 +436,7 @@ func (d *ShellyPlusDevice) UpdateInfo() {
 		Url:         "http://" + d.ip,
 	})
 	if err != nil {
-		log.Printf("ERROR: device %s: failed to send info: %s", d.hostname, err)
+		log.Errorf("device %s: failed to send info: %s", d.hostname, err)
 	}
 }
 
@@ -514,7 +514,7 @@ func (d *ShellyPlusDevice) UpdateState(next *NotifyStatus) {
 						Value: val.State,
 					},
 				})
-				log.Printf("device %s: input %d, name: %q, type: %s, invert: %t, ts: %s, state: %t", d.hostname, prev.ID, prev.Name, prev.Type, prev.Invert, prev.Timestamp.Format("2006/01/02 15:04:05"), prev.State)
+				log.Infof("device %s: input %d, name: %q, type: %s, invert: %t, ts: %s, state: %t", d.hostname, prev.ID, prev.Name, prev.Type, prev.Invert, prev.Timestamp.Format("2006/01/02 15:04:05"), prev.State)
 			}
 		}
 
@@ -529,7 +529,7 @@ func (d *ShellyPlusDevice) UpdateState(next *NotifyStatus) {
 						Value: val.Running,
 					},
 				})
-				log.Printf("device %s: script %d, name: %q, enable: %t, running: %t", d.hostname, prev.ID, prev.Name, prev.Enable, prev.Running)
+				log.Infof("device %s: script %d, name: %q, enable: %t, running: %t", d.hostname, prev.ID, prev.Name, prev.Enable, prev.Running)
 			}
 		}
 
@@ -565,14 +565,14 @@ func (d *ShellyPlusDevice) UpdateState(next *NotifyStatus) {
 						},
 					})
 				}
-				log.Printf("device %s: switch %d, name: %q, ts: %s, state: %t, temp: %0.1f °C, voltage: %.1f V, current: %.1f A, avg.power: %.1f W, avg.energy.total: %.3f Wh", d.hostname, prev.ID, prev.Name, prev.Timestamp.Format("2006/01/02 15:04:05"), prev.State, prev.Temperature, prev.Voltage, prev.Current, prev.AveragePower, prev.AverageEnergy.Total)
+				log.Infof("device %s: switch %d, name: %q, ts: %s, state: %t, temp: %0.1f °C, voltage: %.1f V, current: %.1f A, avg.power: %.1f W, avg.energy.total: %.3f Wh", d.hostname, prev.ID, prev.Name, prev.Timestamp.Format("2006/01/02 15:04:05"), prev.State, prev.Temperature, prev.Voltage, prev.Current, prev.AveragePower, prev.AverageEnergy.Total)
 			}
 		}
 	}
 
 	err := d.comms.SendState(update)
 	if err != nil {
-		log.Printf("ERROR: device %s: failed to send state: %s", d.hostname, err)
+		log.Errorf("device %s: failed to send state: %s", d.hostname, err)
 	}
 }
 
@@ -616,7 +616,7 @@ func (d *ShellyPlusDevice) HandleRequest(request *api.DeviceRequest) error {
 			Params: request,
 		})
 		if err != nil {
-			log.Printf("ERROR: device %s: failed to set state: %s", d.hostname, err)
+			log.Errorf("device %s: failed to set state: %s", d.hostname, err)
 			return fmt.Errorf("failed to set state: %w", err)
 		}
 	}
