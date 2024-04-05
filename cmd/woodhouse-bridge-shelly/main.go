@@ -11,8 +11,11 @@ import (
 	api "github.com/jimjibone/woodhouse-4/api/go"
 	"github.com/jimjibone/woodhouse-4/apitools"
 	"github.com/jimjibone/woodhouse-4/log"
+	"github.com/jimjibone/woodhouse-4/shared/stores"
 	"github.com/jimjibone/woodhouse-4/wh"
+	whv1 "github.com/jimjibone/woodhouse-4/wh/v1"
 	"github.com/urfave/cli/v2"
+	"google.golang.org/grpc"
 )
 
 func main() {
@@ -21,9 +24,15 @@ func main() {
 		Usage:                "Bridges Shelly devices into Woodhouse.",
 		EnableBashCompletion: true,
 		Flags: []cli.Flag{
+			&cli.PathFlag{
+				Name:     "store",
+				Usage:    "path to config storage location",
+				Required: true,
+			},
 			&cli.StringFlag{
-				Name:  "addr",
-				Usage: "woodhouse-core server address (disables automatic discovery)",
+				Name:     "addr",
+				Usage:    "woodhouse-core server address",
+				Required: true,
 			},
 			&cli.StringFlag{
 				Name:  "id",
@@ -66,6 +75,9 @@ func main() {
 				}
 			}()
 
+			// Create the store.
+			store := stores.NewFSStore(args.String("store"))
+
 			// Create the bridge.
 			bridge := wh.NewBridge(&api.BridgeInfo{
 				BridgeId:    args.String("id"),
@@ -96,8 +108,13 @@ func main() {
 			// Run the bridge stuff.
 			wg.Add(1)
 			go func() {
-				connector := wh.NewConnector(bridge.Run)
-				err := connector.Run(ctx)
+				client := whv1.NewClient(store, args.String("addr"), whv1.WithClientID(args.String("id")), whv1.WithConnectionHandler(func(ctx context.Context, conn *grpc.ClientConn) {
+					err := bridge.Run(ctx, conn)
+					if err != nil {
+						log.Errorf("bridge run failed: %s", err)
+					}
+				}))
+				err := client.Run()
 				if err != nil {
 					errs <- err
 				}
