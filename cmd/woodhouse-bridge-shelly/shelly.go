@@ -4,16 +4,15 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/grandcat/zeroconf"
 	"github.com/jimjibone/woodhouse-4/cmd/woodhouse-bridge-shelly/shelly_v1"
 	"github.com/jimjibone/woodhouse-4/cmd/woodhouse-bridge-shelly/shelly_v2"
 	"github.com/jimjibone/woodhouse-4/log"
-	"github.com/jimjibone/woodhouse-4/wh"
+	"github.com/jimjibone/woodhouse-4/wh/v1"
 )
 
-func shellyStuff(ctx context.Context, bridge *wh.Bridge, doUpdatesChan <-chan bool) error {
+func shellyStuff(ctx context.Context, client *wh.Client) error {
 	log.Infof("shelly started")
 	defer log.Infof("shelly finished")
 
@@ -35,22 +34,18 @@ func shellyStuff(ctx context.Context, bridge *wh.Bridge, doUpdatesChan <-chan bo
 
 	// Get devices to close when we're exiting.
 	defer func() {
+		for _, device := range devices_v1 {
+			device.Close()
+		}
 		for _, device := range devices_v2 {
 			device.Close()
 		}
 	}()
 
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
-
-	doUpdates := false
-
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
-
-		case doUpdates = <-doUpdatesChan:
 
 		case entry := <-entries:
 			ip := ""
@@ -68,39 +63,31 @@ func shellyStuff(ctx context.Context, bridge *wh.Bridge, doUpdatesChan <-chan bo
 			}
 
 			if !exists {
-				deviceID, device_v1, device_v2 := handleDiscovery(bridge, ip, hostname)
+				_, device_v1, device_v2 := handleDiscovery(ip, hostname)
 				if device_v1 != nil {
-					devices_v1[deviceID] = device_v1
-					bridge.AddDevice(deviceID, device_v1)
+					devices_v1[device_v1.ID()] = device_v1
+					client.AddDevice(device_v1.Device())
 				}
 				if device_v2 != nil {
-					devices_v2[deviceID] = device_v2
-					bridge.AddDevice(deviceID, device_v2)
-				}
-			}
-
-		case <-ticker.C:
-			// Only do updates when connected to woodhouse.
-			if doUpdates {
-				for _, device := range devices_v1 {
-					device.UpdateState(false)
+					devices_v2[device_v2.ID()] = device_v2
+					client.AddDevice(device_v2.Device())
 				}
 			}
 		}
 	}
 }
 
-func handleDiscovery(bridge *wh.Bridge, ip, hostname string) (deviceID string, device_v1 shelly_v1.Device, device_v2 shelly_v2.Device) {
+func handleDiscovery(ip, hostname string) (deviceID string, device_v1 shelly_v1.Device, device_v2 shelly_v2.Device) {
 	// Gen 1 Device API - https://shelly-api-docs.shelly.cloud/gen1
 	if strings.Contains(hostname, "shelly") {
-		rest := shelly_v1.Rest{IP: ip}
+		rest := shelly_v1.NewRest(ip)
 		settings, err := rest.GetSettings()
 		if err != nil {
 			log.Errorf("failed to get settings for %s: %s", ip, err)
 			return "", nil, nil
 		}
 
-		log.Infof("discovered v1 %s at http://%s (name: %s)", hostname, ip, settings.Name)
+		log.Infof("discovered v1 %s at http://%s (name: %s, type: %s)", hostname, ip, settings.Name, settings.Device.Type)
 
 		return hostname, shelly_v1.Generate(settings.Device.Type, hostname, ip), nil
 	}

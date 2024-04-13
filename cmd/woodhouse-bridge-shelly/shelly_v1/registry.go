@@ -1,11 +1,11 @@
 package shelly_v1
 
-import "github.com/jimjibone/woodhouse-4/wh"
+import "github.com/jimjibone/woodhouse-4/wh/v1/devices"
 
 type Device interface {
-	wh.Device
-	UpdateInfo()                 // Update the device info.
-	UpdateState(fullUpdate bool) // Update the device state.
+	ID() string
+	Device() devices.Device
+	Close()
 }
 
 type DeviceGenerator func(hostname, ip string) Device

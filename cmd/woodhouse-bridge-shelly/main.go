@@ -3,25 +3,17 @@ package main
 import (
 	"context"
 	"os"
-	"os/signal"
-	"sync"
-	"syscall"
-	"time"
 
-	api "github.com/jimjibone/woodhouse-4/api/go"
-	"github.com/jimjibone/woodhouse-4/apitools"
 	"github.com/jimjibone/woodhouse-4/log"
 	"github.com/jimjibone/woodhouse-4/shared/stores"
-	"github.com/jimjibone/woodhouse-4/wh"
-	whv1 "github.com/jimjibone/woodhouse-4/wh/v1"
+	"github.com/jimjibone/woodhouse-4/wh/v1"
 	"github.com/urfave/cli/v2"
-	"google.golang.org/grpc"
 )
 
 func main() {
 	app := &cli.App{
-		Name:                 "woodhouse-bridge-shelly",
-		Usage:                "Bridges Shelly devices into Woodhouse.",
+		Name:                 "woodhouse-shelly",
+		Usage:                "Woodhouse client for Shelly devices.",
 		EnableBashCompletion: true,
 		Flags: []cli.Flag{
 			&cli.PathFlag{
@@ -60,75 +52,23 @@ func main() {
 			return nil
 		},
 		Action: func(args *cli.Context) error {
-			// Create the main app context.
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-
-			// Cancel the main app context if an interrupt is received.
-			var sig = make(chan os.Signal, 2)
-			signal.Notify(sig, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
-			go func() {
-				select {
-				case <-ctx.Done():
-				case <-sig:
-					cancel()
-				}
-			}()
-
 			// Create the store.
 			store := stores.NewFSStore(args.String("store"))
 
-			// Create the bridge.
-			bridge := wh.NewBridge(&api.BridgeInfo{
-				BridgeId:    args.String("id"),
-				Name:        args.String("name"),
-				Description: "Shelly device support.",
-				BootTime:    apitools.TimeToTimestamp(time.Now()),
-			})
+			// Create the client.
+			client := wh.NewClient(store, args.String("addr"), wh.WithClientID(args.String("id")))
 
-			// Only do regular device updates when connected to woodhouse.
-			doUpdates := make(chan bool, 1)
-			bridge.OnConnected = func() { doUpdates <- true }
-			bridge.OnDisconnected = func() { doUpdates <- false }
+			// Start the Shelly goroutine.
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			go shellyStuff(ctx, client)
 
-			// Collect errors from goroutines.
-			var wg sync.WaitGroup
-			errs := make(chan error, 1)
-
-			// Run the shelly stuff.
-			wg.Add(1)
-			go func() {
-				err := shellyStuff(ctx, bridge, doUpdates)
-				if err != nil {
-					errs <- err
-				}
-				wg.Done()
-			}()
-
-			// Run the bridge stuff.
-			wg.Add(1)
-			go func() {
-				client := whv1.NewClient(store, args.String("addr"), whv1.WithClientID(args.String("id")), whv1.WithConnectionHandler(func(ctx context.Context, conn *grpc.ClientConn) {
-					err := bridge.Run(ctx, conn)
-					if err != nil {
-						log.Errorf("bridge run failed: %s", err)
-					}
-				}))
-				err := client.Run()
-				if err != nil {
-					errs <- err
-				}
-				wg.Done()
-			}()
-
-			// Wait for program exit...
-			select {
-			case <-ctx.Done():
-			case err := <-errs:
+			// Run the client.
+			err := client.Run()
+			if err != nil {
 				return err
 			}
-			cancel()
-			wg.Wait()
+
 			return nil
 		},
 	}

@@ -1,17 +1,33 @@
 package shelly_v1
 
 import (
+	"context"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"time"
+
+	"github.com/jimjibone/woodhouse-4/log"
 )
 
 type Rest struct {
-	IP string
+	ip          string
+	minBackoff  time.Duration
+	maxBackoff  time.Duration
+	lastBackoff time.Duration
 }
 
-func (r Rest) GetShelly() (Shelly, error) {
-	req, err := http.NewRequest("GET", "http://"+r.IP+"/shelly", nil)
+func NewRest(ip string) *Rest {
+	return &Rest{
+		ip:          ip,
+		minBackoff:  time.Second,
+		maxBackoff:  32 * time.Second,
+		lastBackoff: 0,
+	}
+}
+
+func (r *Rest) GetShelly() (Shelly, error) {
+	req, err := http.NewRequest("GET", "http://"+r.ip+"/shelly", nil)
 	if err != nil {
 		return Shelly{}, err
 	}
@@ -34,8 +50,8 @@ func (r Rest) GetShelly() (Shelly, error) {
 	return msg, nil
 }
 
-func (r Rest) GetStatus() (DeviceStatus, error) {
-	req, err := http.NewRequest("GET", "http://"+r.IP+"/status", nil)
+func (r *Rest) GetStatus() (DeviceStatus, error) {
+	req, err := http.NewRequest("GET", "http://"+r.ip+"/status", nil)
 	if err != nil {
 		return DeviceStatus{}, err
 	}
@@ -58,8 +74,8 @@ func (r Rest) GetStatus() (DeviceStatus, error) {
 	return devicestatus, nil
 }
 
-func (r Rest) GetSettings() (DeviceSettings, error) {
-	req, err := http.NewRequest("GET", "http://"+r.IP+"/settings", nil)
+func (r *Rest) GetSettings() (DeviceSettings, error) {
+	req, err := http.NewRequest("GET", "http://"+r.ip+"/settings", nil)
 	if err != nil {
 		return DeviceSettings{}, err
 	}
@@ -82,8 +98,8 @@ func (r Rest) GetSettings() (DeviceSettings, error) {
 	return devicesettings, nil
 }
 
-func (r Rest) GetJSON(endpoint string, v interface{}) error {
-	url := "http://" + r.IP + "/" + endpoint
+func (r *Rest) GetJSON(endpoint string, v interface{}) error {
+	url := "http://" + r.ip + "/" + endpoint
 	// log.Printf("GET %s", url)
 
 	req, err := http.NewRequest("GET", url, nil)
@@ -106,4 +122,28 @@ func (r Rest) GetJSON(endpoint string, v interface{}) error {
 		return err
 	}
 	return nil
+}
+
+// Implements an exponential backoff by sleeping the goroutine for an increasing
+// amount of time, up to the maxBackoff, unless reset is true when it will
+// return the backoff to minBackoff.
+func (rest *Rest) Backoff(log *log.Context, ctx context.Context, reset bool) {
+	if reset {
+		rest.lastBackoff = rest.minBackoff
+	} else {
+		rest.lastBackoff = rest.lastBackoff * 2
+	}
+	if rest.lastBackoff <= 0 {
+		rest.lastBackoff = rest.minBackoff
+	}
+	if rest.lastBackoff > rest.maxBackoff {
+		rest.lastBackoff = rest.maxBackoff
+	}
+	log.Debugf("backoff for %s", rest.lastBackoff)
+	timer := time.NewTimer(rest.lastBackoff)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+	case <-timer.C:
+	}
 }
