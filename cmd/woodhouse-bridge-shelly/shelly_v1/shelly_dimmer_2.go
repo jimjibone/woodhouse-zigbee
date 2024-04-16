@@ -23,11 +23,9 @@ func init() {
 // ShellyDimmer2 - device type: SHDM-2
 type ShellyDimmer2 struct {
 	log      *log.Context
-	comms    *devices.Comms
 	rest     *Rest
 	hostname string
 	ip       string
-	state    ShellyDimmer2State
 
 	dev       *devices.DeviceImpl
 	info      *services.Info
