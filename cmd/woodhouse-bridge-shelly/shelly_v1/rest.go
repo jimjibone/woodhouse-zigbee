@@ -129,21 +129,25 @@ func (r *Rest) GetJSON(endpoint string, v interface{}) error {
 // return the backoff to minBackoff.
 func (rest *Rest) Backoff(log *log.Context, ctx context.Context, reset bool) {
 	if reset {
+		rest.lastBackoff = 0
+	} else if rest.lastBackoff == 0 {
 		rest.lastBackoff = rest.minBackoff
 	} else {
 		rest.lastBackoff = rest.lastBackoff * 2
 	}
-	if rest.lastBackoff <= 0 {
+	if rest.lastBackoff < 0 {
 		rest.lastBackoff = rest.minBackoff
 	}
 	if rest.lastBackoff > rest.maxBackoff {
 		rest.lastBackoff = rest.maxBackoff
 	}
-	log.Debugf("backoff for %s", rest.lastBackoff)
-	timer := time.NewTimer(rest.lastBackoff)
-	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-	case <-timer.C:
+	if rest.lastBackoff > 0 {
+		log.Debugf("backoff for %s", rest.lastBackoff)
+		timer := time.NewTimer(rest.lastBackoff)
+		defer timer.Stop()
+		select {
+		case <-ctx.Done():
+		case <-timer.C:
+		}
 	}
 }
