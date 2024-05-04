@@ -48,36 +48,36 @@ func shellyStuff(ctx context.Context, client *wh.Client) error {
 			return nil
 
 		case entry := <-entries:
-			ip := ""
-			if len(entry.AddrIPv4) > 0 {
-				ip = entry.AddrIPv4[0].String()
-			}
-			hostname := strings.TrimSuffix(entry.HostName, ".local.")
-
-			exists := false
-			if _, found := devices_v1[hostname]; found {
-				exists = true
-			}
-			if _, found := devices_v2[hostname]; found {
-				exists = true
-			}
-
-			if !exists {
-				_, device_v1, device_v2 := handleDiscovery(ip, hostname)
-				if device_v1 != nil {
-					devices_v1[device_v1.ID()] = device_v1
-					client.AddDevice(device_v1.Device())
+			if entry != nil {
+				ip := ""
+				if len(entry.AddrIPv4) > 0 {
+					ip = entry.AddrIPv4[0].String()
 				}
-				if device_v2 != nil {
-					devices_v2[device_v2.ID()] = device_v2
-					client.AddDevice(device_v2.Device())
+				hostname := strings.TrimSuffix(entry.HostName, ".local.")
+
+				exists := false
+				if _, found := devices_v1[hostname]; found {
+					exists = true
+				}
+				if _, found := devices_v2[hostname]; found {
+					exists = true
+				}
+
+				if !exists {
+					_, device_v1, device_v2 := handleDiscovery(ip, hostname, client)
+					if device_v1 != nil {
+						devices_v1[device_v1.ID()] = device_v1
+					}
+					if device_v2 != nil {
+						devices_v2[device_v2.ID()] = device_v2
+					}
 				}
 			}
 		}
 	}
 }
 
-func handleDiscovery(ip, hostname string) (deviceID string, device_v1 shelly_v1.Device, device_v2 shelly_v2.Device) {
+func handleDiscovery(ip, hostname string, client *wh.Client) (deviceID string, device_v1 shelly_v1.Device, device_v2 shelly_v2.Device) {
 	// Gen 1 Device API - https://shelly-api-docs.shelly.cloud/gen1
 	if strings.Contains(hostname, "shelly") {
 		rest := shelly_v1.NewRest(ip)
@@ -89,7 +89,7 @@ func handleDiscovery(ip, hostname string) (deviceID string, device_v1 shelly_v1.
 
 		log.Infof("discovered v1 %s at http://%s (name: %s, type: %s)", hostname, ip, settings.Name, settings.Device.Type)
 
-		return hostname, shelly_v1.Generate(settings.Device.Type, hostname, ip), nil
+		return hostname, shelly_v1.Generate(settings.Device.Type, hostname, ip, client), nil
 	}
 
 	// Gen 2 Device API - https://shelly-api-docs.shelly.cloud/gen2
@@ -103,7 +103,7 @@ func handleDiscovery(ip, hostname string) (deviceID string, device_v1 shelly_v1.
 
 		log.Infof("discovered v2 %s at http://%s (name: %s, app: %s)", hostname, ip, info.Name, info.App)
 
-		return hostname, nil, shelly_v2.NewShellyPlusDevice(hostname, ip, info.Name, info.App)
+		return hostname, nil, shelly_v2.Generate(info.App, hostname, ip, info.Name, client)
 	}
 
 	log.Warnf("other thing %s at http://%s", hostname, ip)

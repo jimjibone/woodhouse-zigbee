@@ -10,13 +10,14 @@ import (
 
 	clientsapi "github.com/jimjibone/woodhouse-4/api/go/v1/clients"
 	"github.com/jimjibone/woodhouse-4/log"
+	"github.com/jimjibone/woodhouse-4/wh/v1"
 	"github.com/jimjibone/woodhouse-4/wh/v1/devices"
 	"github.com/jimjibone/woodhouse-4/wh/v1/devices/services"
 )
 
 func init() {
-	registerDevice("SHDM-2", func(hostname, ip string) Device {
-		return NewShellyDimmer2(hostname, ip)
+	registerDevice("SHDM-2", func(hostname, ip string, client *wh.Client) Device {
+		return NewShellyDimmer2(hostname, ip, client)
 	})
 }
 
@@ -26,6 +27,9 @@ type ShellyDimmer2 struct {
 	rest     *Rest
 	hostname string
 	ip       string
+
+	client *wh.Client
+	added  bool
 
 	dev       *devices.DeviceImpl
 	info      *services.Info
@@ -49,13 +53,14 @@ type ShellyDimmer2State struct {
 	TransitionMs   int    `json:"transition"`      // One-shot transition, 0..5000 [ms]
 }
 
-func NewShellyDimmer2(hostname, ip string) *ShellyDimmer2 {
+func NewShellyDimmer2(hostname, ip string, client *wh.Client) *ShellyDimmer2 {
 	ctx, close := context.WithCancel(context.Background())
 	dev := &ShellyDimmer2{
 		log:       log.NewContext(log.DefaultLogger, hostname, log.DebugLevel),
 		rest:      NewRest(ip),
 		hostname:  hostname,
 		ip:        ip,
+		client:    client,
 		dev:       devices.NewDevice(hostname, clientsapi.Device_LIGHTBULB),
 		info:      services.NewInfo(),
 		online:    services.NewOnline(),
@@ -84,10 +89,6 @@ func NewShellyDimmer2(hostname, ip string) *ShellyDimmer2 {
 
 func (dev *ShellyDimmer2) ID() string {
 	return dev.hostname
-}
-
-func (dev *ShellyDimmer2) Device() devices.Device {
-	return dev.dev
 }
 
 func (dev *ShellyDimmer2) Close() {
@@ -190,6 +191,12 @@ func (dev *ShellyDimmer2) updateInfo() error {
 	}
 
 	dev.log.Debugf("settings: %s", settings.Name)
+
+	// Add the device to the client once we've fully connected to it.
+	if !dev.added {
+		dev.added = true
+		dev.client.AddDevice(dev.dev)
+	}
 
 	if dev.info.Name.Set(settings.Name) {
 		dev.log.Infof("name: %s", settings.Name)
