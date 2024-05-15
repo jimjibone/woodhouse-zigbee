@@ -11,13 +11,19 @@ type Device interface {
 }
 
 func Generate(app, hostname, ip, name string, client *wh.Client) Device {
+	// switch hostname {
+	// case "ShellyPlusPlugUK-DEADBEEF":
+	// 	return NewShellyPlusPlugUK(hostname, ip, client)
+	// default:
+	// 	log.Warnf("unknown app %q for %s (%s)", app, hostname, name)
+	// }
 	switch app {
 	case "Plus1PM":
 		return NewShellyPlus1PM(hostname, ip, client)
 	case "Plus2PM":
 		return NewShellyPlus2PM(hostname, ip, client)
-	// case "PlusPlugUK":
-	// 	return NewShellyPlusPlugUK(hostname, ip, name, client)
+	case "PlusPlugUK":
+		return NewShellyPlusPlugUK(hostname, ip, client)
 	default:
 		log.Warnf("unknown app %q for %s (%s)", app, hostname, name)
 	}

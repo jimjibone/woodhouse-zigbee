@@ -23,9 +23,12 @@ func NewShellyPlus1PM(hostname, ip string, client *wh.Client) *ShellyPlus1PM {
 		shelly:  NewShellyComms(hostname, ip, clientsapi.Device_RELAY, client),
 		info:    services.NewInfo(),
 		online:  services.NewOnline(),
-		switch0: services.NewSwitchID("switch0"),
-		relay0:  services.NewRelayID("relay0"),
+		switch0: services.NewSwitch("switch0"),
+		relay0:  services.NewRelay("relay0"),
 	}
+
+	initRelay(dev.relay0)
+
 	dev.shelly.OnConnected(dev.onConnected)
 	dev.shelly.OnDisconnected(dev.onDisconnected)
 	dev.shelly.OnResponseFrame(dev.onResponseFrame)
@@ -86,21 +89,7 @@ func (dev *ShellyPlus1PM) onConnected(config GetConfigResponse, status GetStatus
 	}
 	for _, val := range status.Switches {
 		if val.ID == 0 {
-			if val.Output != nil {
-				dev.relay0.On.Set(*val.Output)
-			}
-			if val.AveragePower != nil {
-				dev.relay0.Power.Set(*val.AveragePower)
-			}
-			if val.Voltage != nil {
-				dev.relay0.Voltage.Set(*val.Voltage)
-			}
-			if val.Current != nil {
-				dev.relay0.Current.Set(*val.Current)
-			}
-			if val.Temperature != nil {
-				dev.relay0.Temperature.Set(val.Temperature.Centigrade)
-			}
+			updateRelay(dev.relay0, val)
 		} else {
 			dev.shelly.log.Warnf("status contained unexpected switch %+v", val)
 		}
@@ -129,21 +118,7 @@ func (dev *ShellyPlus1PM) onNotificationFrame(frame NotificationFrame) {
 	}
 	for _, val := range frame.NotifyStatus.Switches {
 		if val.ID == 0 {
-			if val.Output != nil {
-				dev.relay0.On.Set(*val.Output)
-			}
-			if val.AveragePower != nil {
-				dev.relay0.Power.Set(*val.AveragePower)
-			}
-			if val.Voltage != nil {
-				dev.relay0.Voltage.Set(*val.Voltage)
-			}
-			if val.Current != nil {
-				dev.relay0.Current.Set(*val.Current)
-			}
-			if val.Temperature != nil {
-				dev.relay0.Temperature.Set(val.Temperature.Centigrade)
-			}
+			updateRelay(dev.relay0, val)
 		} else {
 			dev.shelly.log.Warnf("status contained unexpected switch %+v", val)
 		}
@@ -170,7 +145,7 @@ func (dev *ShellyPlus1PM) handleRelayAction(request *clientsapi.ActionRequest, f
 		}
 	}
 
-	err := dev.shelly.RequestSwitchSet(switchSet)
+	err := dev.shelly.RequestSwitchSet(request.ActionId, switchSet)
 	if err != nil {
 		dev.shelly.log.Errorf("failed to set switch: %s", err)
 		return fmt.Errorf("failed to set switch: %w", err)

@@ -83,7 +83,7 @@ func (dev *ShellyComms) OnNotificationFrame(handler func(NotificationFrame)) {
 	dev.onNotificationFrame = handler
 }
 
-func (dev *ShellyComms) RequestSwitchSet(request SwitchSet) error {
+func (dev *ShellyComms) RequestSwitchSet(id string, request SwitchSet) error {
 	dev.connMu.RLock()
 	defer dev.connMu.RUnlock()
 	if dev.conn == nil {
@@ -91,8 +91,8 @@ func (dev *ShellyComms) RequestSwitchSet(request SwitchSet) error {
 	}
 
 	err := dev.conn.WriteJSON(RequestFrame{
-		ID:     200,
-		Src:    "woodhouse",
+		ID:     FrameID(id),
+		Src:    "woodhouse-4",
 		Method: "Switch.Set",
 		Params: request,
 	})
@@ -155,9 +155,14 @@ func (dev *ShellyComms) connect() (err error) {
 		}
 	}()
 
-	dev.log.Infof("created websocket")
+	dev.log.Debugf("created websocket")
 
-	err = conn.WriteMessage(websocket.TextMessage, []byte(`{"id":100, "src":"woodhouse", "method":"Shelly.GetConfig"}`))
+	err = conn.WriteJSON(RequestFrame{
+		ID:     "120",
+		Src:    "woodhouse-4",
+		Method: "Shelly.GetConfig",
+	})
+	// err = conn.WriteMessage(websocket.TextMessage, []byte(`{"id":300, "src":"woodhouse", "method":"Shelly.GetConfig"}`))
 	if err != nil {
 		return fmt.Errorf("write get config: %w", err)
 	}
@@ -166,14 +171,14 @@ func (dev *ShellyComms) connect() (err error) {
 	if err != nil {
 		return fmt.Errorf("read get config: %w", err)
 	}
-	dev.log.Debugf("--> recv: %s", message)
+	// dev.log.Debugf("--> recv: %s", message)
 
 	var frame ResponseFrame
 	err = json.Unmarshal(message, &frame)
 	if err != nil {
 		return fmt.Errorf("unmarshal config frame: %w", err)
 	}
-	dev.log.Debugf("config frame: %+v", frame)
+	// dev.log.Debugf("config frame: %+v", frame)
 
 	var configResponse GetConfigResponse
 	if frame.Result != nil {
@@ -184,7 +189,12 @@ func (dev *ShellyComms) connect() (err error) {
 		dev.log.Debugf("config: %+v", configResponse)
 	}
 
-	err = conn.WriteMessage(websocket.TextMessage, []byte(`{"id":101, "src":"woodhouse", "method":"Shelly.GetStatus"}`))
+	err = conn.WriteJSON(RequestFrame{
+		ID:     "121",
+		Src:    "woodhouse-4",
+		Method: "Shelly.GetStatus",
+	})
+	// err = conn.WriteMessage(websocket.TextMessage, []byte(`{"id":301, "src":"woodhouse", "method":"Shelly.GetStatus"}`))
 	if err != nil {
 		return fmt.Errorf("write get status: %w", err)
 	}
@@ -193,13 +203,13 @@ func (dev *ShellyComms) connect() (err error) {
 	if err != nil {
 		return fmt.Errorf("read get status: %w", err)
 	}
-	dev.log.Debugf("--> recv: %s", message)
+	// dev.log.Debugf("--> recv: %s", message)
 
 	err = json.Unmarshal(message, &frame)
 	if err != nil {
 		return fmt.Errorf("unmarshal status frame: %w", err)
 	}
-	dev.log.Debugf("status frame: %+v", frame)
+	// dev.log.Debugf("status frame: %+v", frame)
 
 	var statusResponse GetStatusResponse
 	if frame.Result != nil {
@@ -209,6 +219,10 @@ func (dev *ShellyComms) connect() (err error) {
 		}
 		dev.log.Debugf("status: %+v", statusResponse)
 	}
+
+	dev.connMu.Lock()
+	dev.conn = conn
+	dev.connMu.Unlock()
 
 	dev.logDeviceInfo(configResponse, statusResponse)
 
@@ -221,10 +235,6 @@ func (dev *ShellyComms) connect() (err error) {
 	if dev.onConnected != nil {
 		dev.onConnected(configResponse, statusResponse)
 	}
-
-	dev.connMu.Lock()
-	dev.conn = conn
-	dev.connMu.Unlock()
 
 	return nil
 }
@@ -243,6 +253,9 @@ func (dev *ShellyComms) disconnect() {
 }
 
 func (dev *ShellyComms) recv(ctx context.Context) {
+	dev.log.Debugf("recv started")
+	defer dev.log.Debugf("recv finished")
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -255,14 +268,13 @@ func (dev *ShellyComms) recv(ctx context.Context) {
 			dev.log.Errorf("read: %s", err)
 			return
 		}
-		// dev.log.Printf("--> recv: %s", message)
+		// dev.log.Infof("--> recv: %s", message)
 
 		switch DetectFrameType(message) {
-		case UnknownFrameType:
+		default:
 			dev.log.Warnf("unknown frame type for message: %s", message)
 
 		case ResponseFrameType:
-			dev.log.Infof("--> recv response frame: %s", message)
 			var frame ResponseFrame
 			err = json.Unmarshal(message, &frame)
 			if err != nil {

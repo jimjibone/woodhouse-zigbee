@@ -21,6 +21,21 @@ type NotifyStatus struct {
 	Switches  []GetStatusResponseSwitch
 }
 
+func (frame *NotificationFrame) String() string {
+	str := fmt.Sprintf("{Src:%s, Dst:%s, Method:%s", frame.Src, frame.Dst, frame.Method)
+	if frame.NotifyStatus != nil {
+		str += ", NotifyStatus:" + frame.NotifyStatus.String()
+	} else {
+		str += fmt.Sprintf(", Params:%s", frame.Params)
+	}
+	str += "}"
+	return str
+}
+
+func (status *NotifyStatus) String() string {
+	return fmt.Sprintf("{Timestamp:%f, Inputs:%v, Scripts:%v, Switches:%v}", status.Timestamp, status.Inputs, status.Scripts, status.Switches)
+}
+
 func (m *NotificationFrame) UnmarshalJSON(data []byte) error {
 	type Tmp NotificationFrame
 	tmp := Tmp{}

@@ -64,7 +64,7 @@ func NewShellyDimmer2(hostname, ip string, client *wh.Client) *ShellyDimmer2 {
 		dev:       devices.NewDevice(hostname, clientsapi.Device_LIGHTBULB),
 		info:      services.NewInfo(),
 		online:    services.NewOnline(),
-		lightbulb: services.NewLightbulb(),
+		lightbulb: services.NewLightbulb("lightbulb"),
 		close:     close,
 	}
 	dev.log.Infof("created")
@@ -231,8 +231,8 @@ func (dev *ShellyDimmer2) requestAndUpdateState(params string) error {
 		return err
 	}
 
-	transition := time.Duration(next.TransitionMs) * time.Millisecond
-	dev.log.Debugf("state - on: %t, bri: %d, transition: %s", next.IsOn, next.Brightness, transition)
+	// transition := time.Duration(next.TransitionMs) * time.Millisecond
+	// dev.log.Debugf("state - on: %t, bri: %d, transition: %s", next.IsOn, next.Brightness, transition)
 
 	changed := false
 	if dev.online.Online.Set(true) {

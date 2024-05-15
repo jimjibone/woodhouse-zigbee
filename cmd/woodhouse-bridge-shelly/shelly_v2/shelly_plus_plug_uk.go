@@ -9,30 +9,23 @@ import (
 	"github.com/jimjibone/woodhouse-4/wh/v1/devices/services"
 )
 
-// ShellyPlus2PM - device type: Plus2PM
-type ShellyPlus2PM struct {
-	shelly  *ShellyComms
-	info    *services.Info
-	online  *services.Online
-	switch0 *services.Switch
-	switch1 *services.Switch
-	relay0  *services.Relay
-	relay1  *services.Relay
+// ShellyPlusPlugUK - device type: PlusPlugUK
+type ShellyPlusPlugUK struct {
+	shelly *ShellyComms
+	info   *services.Info
+	online *services.Online
+	relay0 *services.Relay
 }
 
-func NewShellyPlus2PM(hostname, ip string, client *wh.Client) *ShellyPlus2PM {
-	dev := &ShellyPlus2PM{
-		shelly:  NewShellyComms(hostname, ip, clientsapi.Device_RELAY, client),
-		info:    services.NewInfo(),
-		online:  services.NewOnline(),
-		switch0: services.NewSwitch("switch0"),
-		switch1: services.NewSwitch("switch1"),
-		relay0:  services.NewRelay("relay0"),
-		relay1:  services.NewRelay("relay1"),
+func NewShellyPlusPlugUK(hostname, ip string, client *wh.Client) *ShellyPlusPlugUK {
+	dev := &ShellyPlusPlugUK{
+		shelly: NewShellyComms(hostname, ip, clientsapi.Device_RELAY, client),
+		info:   services.NewInfo(),
+		online: services.NewOnline(),
+		relay0: services.NewRelay("relay0"),
 	}
 
 	initRelay(dev.relay0)
-	initRelay(dev.relay1)
 
 	dev.shelly.OnConnected(dev.onConnected)
 	dev.shelly.OnDisconnected(dev.onDisconnected)
@@ -41,29 +34,25 @@ func NewShellyPlus2PM(hostname, ip string, client *wh.Client) *ShellyPlus2PM {
 	dev.shelly.dev.AddService(
 		dev.info,
 		dev.online,
-		dev.switch0,
-		dev.switch1,
 		dev.relay0,
-		dev.relay1,
 	)
 	dev.info.Name.OnAction(dev.handleNameAction)
 	dev.relay0.OnAction(dev.handleRelay0Action)
-	dev.relay1.OnAction(dev.handleRelay1Action)
 
 	return dev
 }
 
-func (dev *ShellyPlus2PM) ID() string {
+func (dev *ShellyPlusPlugUK) ID() string {
 	return dev.shelly.ID()
 }
 
-func (dev *ShellyPlus2PM) Close() {
+func (dev *ShellyPlusPlugUK) Close() {
 	dev.shelly.Close()
 }
 
-func (dev *ShellyPlus2PM) onConnected(config GetConfigResponse, status GetStatusResponse) {
+func (dev *ShellyPlusPlugUK) onConnected(config GetConfigResponse, status GetStatusResponse) {
 	dev.info.Name.Set(config.System.Device.Name)
-	dev.info.Model.Set("Shelly Plus 2PM")
+	dev.info.Model.Set("Shelly Plus Plug UK")
 	dev.info.Manufacturer.Set("Shelly")
 	dev.info.SerialNumber.Set(config.System.Device.MAC)
 	dev.info.FirmwareVersion.Set(config.System.Device.FirmwareID)
@@ -74,10 +63,6 @@ func (dev *ShellyPlus2PM) onConnected(config GetConfigResponse, status GetStatus
 	// Generate inputs/scripts/switches from the config.
 	for _, val := range config.Inputs {
 		switch val.ID {
-		case 0:
-			dev.switch0.SetAlias(val.Name)
-		case 1:
-			dev.switch1.SetAlias(val.Name)
 		default:
 			dev.shelly.log.Warnf("config contained unexpected input %+v", val)
 		}
@@ -86,8 +71,6 @@ func (dev *ShellyPlus2PM) onConnected(config GetConfigResponse, status GetStatus
 		switch val.ID {
 		case 0:
 			dev.relay0.SetAlias(val.Name)
-		case 1:
-			dev.relay1.SetAlias(val.Name)
 		default:
 			dev.shelly.log.Warnf("config contained unexpected switch %+v", val)
 		}
@@ -96,10 +79,6 @@ func (dev *ShellyPlus2PM) onConnected(config GetConfigResponse, status GetStatus
 	// Update the values of inputs/scripts/switches from the status.
 	for _, val := range status.Inputs {
 		switch val.ID {
-		case 0:
-			dev.switch0.On.Set(val.State)
-		case 1:
-			dev.switch1.On.Set(val.State)
 		default:
 			dev.shelly.log.Warnf("status contained unexpected input %+v", val)
 		}
@@ -108,31 +87,49 @@ func (dev *ShellyPlus2PM) onConnected(config GetConfigResponse, status GetStatus
 		switch val.ID {
 		case 0:
 			updateRelay(dev.relay0, val)
-		case 1:
-			updateRelay(dev.relay1, val)
 		default:
 			dev.shelly.log.Warnf("status contained unexpected switch %+v", val)
 		}
 	}
 }
 
-func (dev *ShellyPlus2PM) onDisconnected() {
+func (dev *ShellyPlusPlugUK) onDisconnected() {
 	dev.online.Online.Set(false)
 }
 
-func (dev *ShellyPlus2PM) onResponseFrame(ResponseFrame) {
+func (dev *ShellyPlusPlugUK) onResponseFrame(frame ResponseFrame) {
+	// dev.online.Online.Set(true)
+	// dev.online.LastSeen.Set(time.Now())
 
+	// dev.shelly.log.Warnf("response %+v", frame)
+
+	// // Update the values of inputs/scripts/switches from the status.
+	// for _, val := range frame.NotifyStatus.Inputs {
+	// 	switch val.ID {
+	// 	default:
+	// 		dev.shelly.log.Warnf("status contained unexpected input %+v", val)
+	// 	}
+	// }
+	// for _, val := range frame.NotifyStatus.Switches {
+	// 	switch val.ID {
+	// 	case 0:
+	// 		updateRelay(dev.relay0, val)
+	// 	default:
+	// 		dev.shelly.log.Warnf("status contained unexpected switch %+v", val)
+	// 	}
+	// }
 }
 
-func (dev *ShellyPlus2PM) onNotificationFrame(frame NotificationFrame) {
+func (dev *ShellyPlusPlugUK) onNotificationFrame(frame NotificationFrame) {
 	dev.online.Online.Set(true)
 	dev.online.LastSeen.Set(time.Now())
 
+	// dev.shelly.log.Warnf("notification %+v", frame)
+
 	// Update the values of inputs/scripts/switches from the status.
 	for _, val := range frame.NotifyStatus.Inputs {
-		if val.ID == 0 {
-			dev.switch0.On.Set(val.State)
-		} else {
+		switch val.ID {
+		default:
 			dev.shelly.log.Warnf("status contained unexpected input %+v", val)
 		}
 	}
@@ -140,49 +137,22 @@ func (dev *ShellyPlus2PM) onNotificationFrame(frame NotificationFrame) {
 		switch val.ID {
 		case 0:
 			updateRelay(dev.relay0, val)
-		case 1:
-			updateRelay(dev.relay1, val)
 		default:
 			dev.shelly.log.Warnf("status contained unexpected switch %+v", val)
 		}
 	}
 }
 
-func (dev *ShellyPlus2PM) handleNameAction(val string) {
+func (dev *ShellyPlusPlugUK) handleNameAction(val string) {
 	dev.shelly.log.Errorf("not changing name to %s", val)
 }
 
-func (dev *ShellyPlus2PM) handleRelay0Action(request *clientsapi.ActionRequest, feedback func(*clientsapi.ActionResponse)) error {
+func (dev *ShellyPlusPlugUK) handleRelay0Action(request *clientsapi.ActionRequest, feedback func(*clientsapi.ActionResponse)) error {
 	var switchSet SwitchSet
 
 	for _, req := range request.Values {
 		switch req.Id {
 		case dev.relay0.On.ID():
-			if req.GetBool() == nil {
-				return services.ErrIncorrectTypeFor(dev.relay0.On)
-			}
-			switchSet = SwitchSet{
-				ID: 0,
-				On: req.GetBool().GetValue(),
-			}
-		}
-	}
-
-	err := dev.shelly.RequestSwitchSet(request.ActionId, switchSet)
-	if err != nil {
-		dev.shelly.log.Errorf("failed to set switch: %s", err)
-		return fmt.Errorf("failed to set switch: %w", err)
-	}
-
-	return nil
-}
-
-func (dev *ShellyPlus2PM) handleRelay1Action(request *clientsapi.ActionRequest, feedback func(*clientsapi.ActionResponse)) error {
-	var switchSet SwitchSet
-
-	for _, req := range request.Values {
-		switch req.Id {
-		case dev.relay1.On.ID():
 			if req.GetBool() == nil {
 				return services.ErrIncorrectTypeFor(dev.relay0.On)
 			}
