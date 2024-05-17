@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/jimjibone/woodhouse-4/cmd/woodhouse-bridge-zigbee/zigbee"
+	"github.com/jimjibone/woodhouse-4/cmd/woodhouse-zigbee/zigbee"
 )
 
 func TestDeviceInfo(t *testing.T) {
@@ -481,7 +481,7 @@ var DeviceInfoData1 = []byte(`{
 	"interviewing": false,
 	"manufacturer": "LUMI",
 	"model_id": "lumi.weather",
-	"network_address": 53000,
+	"network_address": 12345,
 	"power_source": "Battery",
 	"software_build_id": "3000-0001",
 	"supported": true,

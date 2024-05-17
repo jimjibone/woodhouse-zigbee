@@ -8,7 +8,7 @@ import (
 
 	api "github.com/jimjibone/woodhouse-4/api/go"
 	"github.com/jimjibone/woodhouse-4/apitools"
-	"github.com/jimjibone/woodhouse-4/cmd/woodhouse-bridge-zigbee/zigbee/converters"
+	"github.com/jimjibone/woodhouse-4/cmd/woodhouse-zigbee/zigbee/converters"
 	"github.com/jimjibone/woodhouse-4/wh"
 	"google.golang.org/protobuf/proto"
 )

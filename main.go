@@ -20,8 +20,8 @@ import (
 
 func main() {
 	app := &cli.App{
-		Name:                 "woodhouse-bridge-zigbee",
-		Usage:                "Bridges zigbee devices from zigbee2mqtt into Woodhouse.",
+		Name:                 "woodhouse-zigbee",
+		Usage:                "Woodhouse client for zigbee devices (via zigbee2mqtt).",
 		EnableBashCompletion: true,
 		Flags: []cli.Flag{
 			&cli.PathFlag{

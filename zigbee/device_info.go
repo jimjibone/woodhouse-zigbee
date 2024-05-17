@@ -1,6 +1,6 @@
 package zigbee
 
-import "github.com/jimjibone/woodhouse-4/cmd/woodhouse-bridge-zigbee/zigbee/converters"
+import "github.com/jimjibone/woodhouse-4/cmd/woodhouse-zigbee/zigbee/converters"
 
 type DeviceInfo struct {
 	DateCode   string `json:"date_code"`

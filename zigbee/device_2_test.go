@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/jimjibone/woodhouse-4/cmd/woodhouse-bridge-zigbee/zigbee"
+	"github.com/jimjibone/woodhouse-4/cmd/woodhouse-zigbee/zigbee"
 )
 
 func TestDevice2(t *testing.T) {
@@ -229,7 +229,7 @@ var Device2Info = []byte(`{
 	"interviewing": false,
 	"manufacturer": "Philips",
 	"model_id": "RWL021",
-	"network_address": 48525,
+	"network_address": 12345,
 	"power_source": "Battery",
 	"software_build_id": "6.1.1.28573",
 	"supported": true,
