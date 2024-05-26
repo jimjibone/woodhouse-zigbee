@@ -32,8 +32,16 @@ type ZigbeeLight struct {
 	ctProperty  string
 	ctConverter *NumericConverter
 
-	// colorProperty  string
-	// colorConverter *NumericConverter
+	ignoreColor       bool
+	colorProperty     string
+	colorHueProperty  string
+	colorSatProperty  string
+	colorHueConverter *NumericConverter
+	colorSatConverter *NumericConverter
+	colorXProperty    string
+	colorYProperty    string
+	colorXConverter   *NumericConverter
+	colorYConverter   *NumericConverter
 }
 
 func NewZigbeeLight(info DeviceInfo, client *wh.Client, baseUrl string, requests func(ZigbeeRequest)) *ZigbeeLight {
@@ -116,14 +124,76 @@ func (dev *ZigbeeLight) UpdateInfo(info DeviceInfo) {
 							dev.log.Debugf("color_temp expose %q: %s", dev.ctProperty, dev.ctConverter)
 						}
 
-					// case "color_hs":
-					// 	dev.colorProperty = featureExpose.Property
-					// 	dev.colorConverter, err = UnmarshalNumeric(featureExpose.Data)
-					// 	if err != nil {
-					// 		dev.log.Errorf("failed to unmarshal light brightness: %s -- %s", err, expose)
-					// 	} else {
-					// 		dev.log.Debugf("brightness expose %q: %s", dev.colorProperty, dev.colorConverter)
-					// 	}
+					case "color_xy":
+						dev.colorProperty = featureExpose.Property
+						colorFeatures, err := UnmarshalFeature(featureExpose.Data)
+						if err != nil {
+							dev.log.Errorf("failed to unmarshal light color_xy: %s -- %s", err, expose)
+						} else {
+							dev.log.Debugf("color_xy expose %q: %s", dev.colorProperty, colorFeatures)
+
+							for _, colorFeature := range colorFeatures {
+								switch colorFeature.Name {
+								case "x":
+									dev.colorXProperty = colorFeature.Property
+									dev.colorXConverter, err = UnmarshalNumeric(colorFeature.Data)
+									if err != nil {
+										dev.log.Errorf("failed to unmarshal light color_xy.x: %s -- %s", err, expose)
+									} else {
+										dev.log.Debugf("color_xy.x expose %q: %s", dev.colorXProperty, dev.colorXConverter)
+									}
+
+								case "y":
+									dev.colorYProperty = colorFeature.Property
+									dev.colorYConverter, err = UnmarshalNumeric(colorFeature.Data)
+									if err != nil {
+										dev.log.Errorf("failed to unmarshal light color_xy.y: %s -- %s", err, expose)
+									} else {
+										dev.log.Debugf("color_xy.y expose %q: %s", dev.colorYProperty, dev.colorYConverter)
+									}
+
+								default:
+									dev.log.Errorf("unsupported light color_xy feature %q: %s", colorFeature.Name, colorFeature)
+								}
+							}
+						}
+
+					case "color_hs":
+						dev.colorProperty = featureExpose.Property
+						colorFeatures, err := UnmarshalFeature(featureExpose.Data)
+						if err != nil {
+							dev.log.Errorf("failed to unmarshal light color_hs: %s -- %s", err, expose)
+						} else {
+							dev.log.Debugf("color_hs expose %q: %s", dev.colorProperty, colorFeatures)
+
+							for _, colorFeature := range colorFeatures {
+								switch colorFeature.Name {
+								case "hue":
+									dev.colorHueProperty = colorFeature.Property
+									dev.colorHueConverter, err = UnmarshalNumeric(colorFeature.Data)
+									if err != nil {
+										dev.log.Errorf("failed to unmarshal light color_hs.hue: %s -- %s", err, expose)
+									} else {
+										dev.log.Debugf("color_hs.hue expose %q: %s", dev.colorHueProperty, dev.colorHueConverter)
+									}
+
+								case "saturation":
+									dev.colorSatProperty = colorFeature.Property
+									dev.colorSatConverter, err = UnmarshalNumeric(colorFeature.Data)
+									if err != nil {
+										dev.log.Errorf("failed to unmarshal light color_hs.sat: %s -- %s", err, expose)
+									} else {
+										dev.log.Debugf("color_hs.sat expose %q: %s", dev.colorSatProperty, dev.colorSatConverter)
+									}
+
+								default:
+									dev.log.Errorf("unsupported light color_hs feature %q: %s", colorFeature.Name, colorFeature)
+								}
+							}
+						}
+
+					case "color_mode":
+						// ignore
 
 					default:
 						dev.log.Errorf("unsupported light expose %q: %s", featureExpose.Name, featureExpose)
@@ -133,6 +203,11 @@ func (dev *ZigbeeLight) UpdateInfo(info DeviceInfo) {
 
 		default:
 			dev.log.Errorf("unsupported expose type %q: %s", expose.Type, expose)
+		}
+
+		// If the info reports x/y support but not hue/sat then don't allow color control.
+		if dev.colorHueProperty == "" && dev.colorSatProperty == "" {
+			dev.ignoreColor = true
 		}
 
 		// switch expose.Type {
@@ -234,9 +309,63 @@ func (dev *ZigbeeLight) UpdateState(state DeviceState) {
 				dev.lightbulb.ColorTemp.Set(ct)
 			}
 
-		// case "color_mode":
-		// case "color_temp":
-		// case "color":
+		case dev.colorProperty:
+			if !dev.ignoreColor {
+				var vals map[string]json.RawMessage
+				err := json.Unmarshal(value, &vals)
+				if err != nil {
+					dev.log.Errorf("failed to unmarshal color value %q: %s", value, err)
+				} else {
+					for colorKey, colorValue := range vals {
+						hue, sat, x, y := dev.lightbulb.Color.Get()
+						switch colorKey {
+						case dev.colorXProperty:
+							val, err := dev.colorXConverter.UnmarshalValue(colorValue)
+							if err != nil {
+								dev.log.Errorf("failed to unmarshal color.x value %q: %s", colorValue, err)
+							} else {
+								dev.log.Debugf("color.x value %q: %f", dev.colorXProperty, val)
+								x = val
+							}
+
+						case dev.colorYProperty:
+							val, err := dev.colorYConverter.UnmarshalValue(colorValue)
+							if err != nil {
+								dev.log.Errorf("failed to unmarshal color.y value %q: %s", colorValue, err)
+							} else {
+								dev.log.Debugf("color.y value %q: %f", dev.colorYProperty, val)
+								y = val
+							}
+
+						case dev.colorHueProperty:
+							val, err := dev.colorHueConverter.UnmarshalValue(colorValue)
+							if err != nil {
+								dev.log.Errorf("failed to unmarshal color.hue value %q: %s", colorValue, err)
+							} else {
+								dev.log.Debugf("color.hue value %q: %f", dev.colorHueProperty, val)
+								hue = val
+							}
+
+						case dev.colorSatProperty:
+							val, err := dev.colorSatConverter.UnmarshalValue(colorValue)
+							if err != nil {
+								dev.log.Errorf("failed to unmarshal color.sat value %q: %s", colorValue, err)
+							} else {
+								dev.log.Debugf("color.sat value %q: %f", dev.colorSatProperty, val)
+								sat = val
+							}
+
+						default:
+							dev.log.Errorf("unsupported color property %q: %s", colorKey, colorValue)
+						}
+						dev.lightbulb.Color.Set(hue, sat, x, y)
+					}
+				}
+			}
+
+		case "color_mode":
+			// ignore
+
 		default:
 			dev.log.Errorf("unsupported state property %q: %s", key, value)
 		}
