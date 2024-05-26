@@ -102,6 +102,7 @@ func main() {
 				} else {
 					// Use websockets for zigbee network data and requests.
 					zigbee := ZigbeeWebsockets{
+						FS:      store,
 						WebAddr: args.String("web-addr"),
 						WsAddr:  args.String("ws-addr"),
 					}

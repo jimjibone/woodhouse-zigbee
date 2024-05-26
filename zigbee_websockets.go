@@ -12,6 +12,7 @@ import (
 	"github.com/gorilla/websocket"
 	zigbee "github.com/jimjibone/woodhouse-4/cmd/woodhouse-zigbee/zigbee2"
 	"github.com/jimjibone/woodhouse-4/log"
+	"github.com/jimjibone/woodhouse-4/shared/stores"
 	"github.com/jimjibone/woodhouse-4/wh/v1"
 )
 
@@ -22,6 +23,7 @@ const (
 
 type ZigbeeWebsockets struct {
 	log             *log.Context
+	FS              stores.Store
 	WebAddr         string
 	WsAddr          string
 	RootTopic       string
@@ -185,6 +187,10 @@ func (zb *ZigbeeWebsockets) backoff(ctx context.Context) {
 func (zb *ZigbeeWebsockets) handleDeviceInfos(payload []byte) {
 	// zb.log.Printf("device infos: %s", payload)
 
+	if zb.FS != nil {
+		zb.FS.Set("device_infos.json", payload)
+	}
+
 	var devices []zigbee.DeviceInfo
 	if err := json.Unmarshal(payload, &devices); err != nil {
 		zb.log.Errorf("failed to unmarshal device infos: %v", err)
@@ -198,57 +204,58 @@ func (zb *ZigbeeWebsockets) handleDeviceInfos(payload []byte) {
 
 	// Update or create devices.
 	for _, info := range devices {
-		if info.IEEEAddress == "0xdeadbeef" {
-			if dev, found := zb.devices[info.IEEEAddress]; found {
-				dev.UpdateInfo(info)
-			} else {
-				dev := zigbee.GenerateDevice(info, zb.client, zb.WebAddr, zb.requestHandler)
-				if dev != nil {
-					zb.devices[info.IEEEAddress] = dev
-				}
+		// if info.IEEEAddress == "0xdeadbeef" {
+		if dev, found := zb.devices[info.IEEEAddress]; found {
+			dev.UpdateInfo(info)
+		} else {
+			dev := zigbee.GenerateDevice(info, zb.client, zb.WebAddr, zb.requestHandler)
+			if dev != nil {
+				zb.devices[info.IEEEAddress] = dev
 			}
 		}
+		//}
 	}
 }
 
 func (zb *ZigbeeWebsockets) handleDeviceAvailability(friendlyName string, payload []byte) {
 	// Update device.
-	if friendlyName == "Living Room Back Light" {
-		if dev := zb.findDeviceByName(friendlyName); dev != nil {
-			switch string(payload) {
-			case `"online"`:
-				dev.UpdateOnline(true)
-			case `"offline"`:
-				dev.UpdateOnline(false)
-			default:
-				zb.log.Errorf("received unexpected device availability for unknown device: %q %s", friendlyName, payload)
-			}
-		} else {
-			zb.log.Errorf("received device availability for unknown device: %q %s", friendlyName, payload)
+	// if friendlyName == "My Lamp" {
+	if dev := zb.findDeviceByName(friendlyName); dev != nil {
+		switch string(payload) {
+		case `"online"`:
+			dev.UpdateOnline(true)
+		case `"offline"`:
+			dev.UpdateOnline(false)
+		default:
+			zb.log.Errorf("received unexpected device availability for unknown device: %q %s", friendlyName, payload)
 		}
+	} else {
+		zb.log.Errorf("received device availability for unknown device: %q %s", friendlyName, payload)
 	}
+	//}
 }
 
 func (zb *ZigbeeWebsockets) handleDeviceState(friendlyName string, payload []byte) {
 	// zb.log.Printf("device state: %s: %s", friendlyName, payload)
 
-	if friendlyName == "Living Room Back Light" {
-		var state zigbee.DeviceState
-		if err := json.Unmarshal(payload, &state); err != nil {
-			zb.log.Errorf("failed to unmarshal device state: %v", err)
-			return
-		}
-
-		// zb.log.Printf("device state: %s\n%s", friendlyName, payload)
-		zb.log.Debugf("device state: %s\n%s", friendlyName, state.String())
-
-		// Update and possibly add devices.
-		if dev := zb.findDeviceByName(friendlyName); dev != nil {
-			dev.UpdateState(state)
-		} else {
-			zb.log.Errorf("received device state for unknown device: %s\n%s", friendlyName, state.String())
-		}
+	// if friendlyName == "My Lamp" {
+	var state zigbee.DeviceState
+	if err := json.Unmarshal(payload, &state); err != nil {
+		zb.log.Errorf("failed to unmarshal device state: %v", err)
+		return
 	}
+
+	// zb.log.Printf("device state: %s\n%s", friendlyName, payload)
+	zb.log.Debugf("device state: %s\n%s", friendlyName, state.String())
+
+	// Update and possibly add devices.
+	if dev := zb.findDeviceByName(friendlyName); dev != nil {
+		dev.UpdateState(state)
+	}
+	//else {
+	//	zb.log.Errorf("received device state for unknown device: %s\n%s", friendlyName, state.String())
+	//}
+	//}
 }
 
 func (zb *ZigbeeWebsockets) findDeviceByName(name string) zigbee.ZigbeeDevice {
