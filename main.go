@@ -3,26 +3,18 @@ package main
 import (
 	"context"
 	"os"
-	"os/signal"
 	"sync"
-	"syscall"
-	"time"
 
-	api "github.com/jimjibone/woodhouse-4/api/go"
-	"github.com/jimjibone/woodhouse-4/apitools"
 	"github.com/jimjibone/woodhouse-4/log"
 	"github.com/jimjibone/woodhouse-4/shared/stores"
-	"github.com/jimjibone/woodhouse-4/wh"
-	whv1 "github.com/jimjibone/woodhouse-4/wh/v1"
+	wh "github.com/jimjibone/woodhouse-4/wh/v1"
 	"github.com/urfave/cli/v2"
-	"google.golang.org/grpc"
 )
 
 func main() {
 	app := &cli.App{
-		Name:                 "woodhouse-zigbee",
-		Usage:                "Woodhouse client for zigbee devices (via zigbee2mqtt).",
-		EnableBashCompletion: true,
+		Name:  "woodhouse-zigbee",
+		Usage: "Woodhouse client for zigbee devices (via zigbee2mqtt).",
 		Flags: []cli.Flag{
 			&cli.PathFlag{
 				Name:     "store",
@@ -38,11 +30,6 @@ func main() {
 				Name:  "id",
 				Usage: "ID used by this bridge",
 				Value: "zigbee",
-			},
-			&cli.StringFlag{
-				Name:  "name",
-				Usage: "Name used by this bridge",
-				Value: "Zigbee",
 			},
 			&cli.StringFlag{
 				Name:     "web-addr",
@@ -68,39 +55,33 @@ func main() {
 				Usage: "mqtt root topic",
 				Value: "zigbee2mqtt",
 			},
+			&cli.BoolFlag{
+				Name:    "debug",
+				Aliases: []string{"v"},
+				Usage:   "enable debug logging",
+			},
+		},
+		Before: func(args *cli.Context) error {
+			// Setup logging.
+			if args.Bool("debug") {
+				log.SetOptions(log.WithMinLevel(log.DebugLevel))
+			} else {
+				log.SetOptions(log.WithMinLevel(log.InfoLevel))
+			}
+			return nil
 		},
 		Action: func(args *cli.Context) error {
-			// Create the main app context.
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-
-			// Cancel the main app context if an interrupt is received.
-			var sig = make(chan os.Signal, 2)
-			signal.Notify(sig, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
-			go func() {
-				select {
-				case <-ctx.Done():
-				case <-sig:
-					cancel()
-				}
-			}()
-
 			// Create the store.
 			store := stores.NewFSStore(args.String("store"))
 
-			// Create the bridge.
-			bridge := wh.NewBridge(&api.BridgeInfo{
-				BridgeId:    args.String("id"),
-				Name:        args.String("name"),
-				Description: "Zigbee device support via zigbee2mqtt.",
-				BootTime:    apitools.TimeToTimestamp(time.Now()),
-			})
+			// Create the client.
+			client := wh.NewClient(store, args.String("addr"), wh.WithClientID(args.String("id")))
 
-			// Collect errors from goroutines.
-			var wg sync.WaitGroup
-			errs := make(chan error, 1)
-
-			// Run the zigbee stuff.
+			// Start the zigbee goroutine.
+			wg := &sync.WaitGroup{}
+			defer wg.Wait()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 			wg.Add(1)
 			go func() {
 				if args.Bool("use-mqtt") {
@@ -114,9 +95,9 @@ func main() {
 						MqttAddr:  args.String("mqtt-server"),
 						RootTopic: args.String("mqtt-topic"),
 					}
-					err := zigbee.Run(ctx, bridge)
+					err := zigbee.Run(ctx, client)
 					if err != nil {
-						errs <- err
+						log.Errorf("failed to run: %s", err)
 					}
 				} else {
 					// Use websockets for zigbee network data and requests.
@@ -124,38 +105,20 @@ func main() {
 						WebAddr: args.String("web-addr"),
 						WsAddr:  args.String("ws-addr"),
 					}
-					err := zigbee.Run(ctx, bridge)
+					err := zigbee.Run(ctx, client)
 					if err != nil {
-						errs <- err
+						log.Errorf("failed to run: %s", err)
 					}
 				}
 				wg.Done()
 			}()
 
-			// Run the bridge stuff.
-			wg.Add(1)
-			go func() {
-				client := whv1.NewClient(store, args.String("addr"), whv1.WithClientID(args.String("id")), whv1.WithConnectionHandler(func(ctx context.Context, conn *grpc.ClientConn) {
-					err := bridge.Run(ctx, conn)
-					if err != nil {
-						log.Errorf("bridge run failed: %s", err)
-					}
-				}))
-				err := client.Run()
-				if err != nil {
-					errs <- err
-				}
-				wg.Done()
-			}()
-
-			// Wait for program exit...
-			select {
-			case <-ctx.Done():
-			case err := <-errs:
+			// Run the client.
+			err := client.Run()
+			if err != nil {
 				return err
 			}
-			cancel()
-			wg.Wait()
+
 			return nil
 		},
 	}
