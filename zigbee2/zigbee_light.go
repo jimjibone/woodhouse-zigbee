@@ -12,7 +12,9 @@ import (
 )
 
 type ZigbeeLight struct {
-	log *log.Context
+	log    *log.Context
+	client *wh.Client
+	added  bool
 
 	baseUrl      string
 	friendlyName string
@@ -47,6 +49,7 @@ type ZigbeeLight struct {
 func NewZigbeeLight(info DeviceInfo, client *wh.Client, baseUrl string, requests func(ZigbeeRequest)) *ZigbeeLight {
 	dev := &ZigbeeLight{
 		log:       log.NewContext(log.DefaultLogger, info.IEEEAddress, log.DebugLevel),
+		client:    client,
 		baseUrl:   baseUrl,
 		requests:  requests,
 		dev:       devices.NewDevice(info.IEEEAddress, clientsapi.Device_LIGHTBULB),
@@ -65,11 +68,6 @@ func NewZigbeeLight(info DeviceInfo, client *wh.Client, baseUrl string, requests
 	dev.log.Infof("created lightbulb")
 
 	dev.UpdateInfo(info)
-
-	err := client.AddDevice(dev.dev)
-	if err != nil {
-		dev.log.Fatalf("failed to add device: %s", err)
-	}
 
 	return dev
 }
@@ -371,87 +369,14 @@ func (dev *ZigbeeLight) UpdateState(state DeviceState) {
 		}
 	}
 
-	// 	changed := false
-	// 	if !zd.lastSeen.After(state.LastSeen) {
-	// 		changed = true
-	// 		zd.lastSeen = state.LastSeen
-	// 	}
-
-	// 	for name, value := range state.Values {
-	// 		if converter, found := zd.converters[name]; found {
-	// 			// Use the converter to convert this state value to a woodhouse value.
-	// 			next, err := converter.Unmarshal(value)
-	// 			if err != nil {
-	// 				log.Printf("ERROR: device %s failed to convert value %q with %s: %s", zd.id, name, value, err)
-	// 			} else {
-	// 				if prev, found := zd.values[name]; found {
-	// 					log.Printf("device %s updated value %q: %v --> %v (converted)", zd.id, name, prev, next)
-	// 				} else {
-	// 					log.Printf("device %s new value %q: %v (converted)", zd.id, name, next)
-	// 				}
-	// 				changed = true
-	// 				zd.values[name] = next
-	// 			}
-	// 		} else {
-	// 			// Do a direct conversion.
-	// 			var val interface{}
-	// 			err := json.Unmarshal(value, &val)
-	// 			if err != nil {
-	// 				log.Printf("ERROR: device %s failed to unmarshal value %q with %s", zd.id, name, value)
-	// 			} else {
-	// 				var next *api.DeviceValue
-	// 				switch v := val.(type) {
-	// 				case bool:
-	// 					next = converters.ConvertBool(v)
-
-	// 				case float64:
-	// 					next = converters.ConvertNumber(v)
-
-	// 				case string:
-	// 					next = converters.ConvertText(v)
-
-	// 				case nil:
-	// 					// Ignore.
-
-	// 				default:
-	// 					switch name {
-	// 					case "update":
-	// 						// Ignore.
-
-	// 					default:
-	// 						log.Printf("ERROR: device %s failed to convert value %q with %+v: no converter", zd.id, name, val)
-	// 					}
-	// 				}
-	// 				if next != nil {
-	// 					if prev, found := zd.values[name]; found {
-	// 						log.Printf("device %s updated value %q: %v --> %v", zd.id, name, prev, next)
-	// 					} else {
-	// 						log.Printf("device %s new value %q: %v", zd.id, name, next)
-	// 					}
-	// 					changed = true
-	// 					zd.values[name] = next
-	// 				}
-	// 			}
-	// 		}
-	// 	}
-
-	// 	if changed && zd.comms != nil {
-	// 		msg := &api.DeviceState{
-	// 			DeviceId:   zd.ID(),
-	// 			Online:     zd.online,
-	// 			LastSeen:   apitools.TimeToTimestamp(zd.lastSeen),
-	// 			FullUpdate: true,
-	// 			Values:     []*api.DeviceValue{},
-	// 		}
-	// 		for name, val := range zd.values {
-	// 			val.Name = name
-	// 			msg.Values = append(msg.Values, proto.Clone(val).(*api.DeviceValue))
-	// 		}
-	// 		err := zd.comms.SendState(msg)
-	// 		if err != nil {
-	// 			log.Printf("ERROR: device %s failed to send state: %s", zd.id, err)
-	// 		}
-	// 	}
+	// Add this device to the client if not done already.
+	if !dev.added {
+		dev.added = true
+		err := dev.client.AddDevice(dev.dev)
+		if err != nil {
+			dev.log.Fatalf("failed to add device: %s", err)
+		}
+	}
 }
 
 func (dev *ZigbeeLight) handleLightAction(request *clientsapi.ActionRequest, feedback func(*clientsapi.ActionResponse)) error {
