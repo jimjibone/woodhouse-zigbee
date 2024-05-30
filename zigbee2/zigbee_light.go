@@ -389,6 +389,55 @@ func (dev *ZigbeeLight) handleLightAction(request *clientsapi.ActionRequest, fee
 					return fmt.Errorf("no converter for %s", val)
 				}
 
+			case dev.lightbulb.Color.ID():
+				if val.GetColor().HueSat != nil {
+					if dev.colorHueConverter != nil && dev.colorSatConverter != nil {
+						huejson, err := dev.colorHueConverter.MarshalValue(val.GetColor().GetHueSat().Hue)
+						if err != nil {
+							return fmt.Errorf("marshal hue %s: %s", val, err)
+						}
+						satjson, err := dev.colorSatConverter.MarshalValue(val.GetColor().GetHueSat().Sat)
+						if err != nil {
+							return fmt.Errorf("marshal sat %s: %s", val, err)
+						}
+						huesat := map[string]json.RawMessage{
+							dev.colorHueProperty: huejson,
+							dev.colorSatProperty: satjson,
+						}
+						huesatjson, err := json.Marshal(huesat)
+						if err != nil {
+							return fmt.Errorf("marshal feature %s: %s", val, err)
+						}
+						reqjson[dev.colorProperty] = huesatjson
+					} else {
+						dev.log.Errorf("no converter for %s", val)
+						return fmt.Errorf("no converter for %s", val)
+					}
+				} else if val.GetColor().Xy != nil {
+					if dev.colorXConverter != nil && dev.colorYConverter != nil {
+						xjson, err := dev.colorXConverter.MarshalValue(val.GetColor().GetXy().X)
+						if err != nil {
+							return fmt.Errorf("marshal x %s: %s", val, err)
+						}
+						yjson, err := dev.colorYConverter.MarshalValue(val.GetColor().GetXy().Y)
+						if err != nil {
+							return fmt.Errorf("marshal y %s: %s", val, err)
+						}
+						xy := map[string]json.RawMessage{
+							dev.colorXProperty: xjson,
+							dev.colorYProperty: yjson,
+						}
+						xyjson, err := json.Marshal(xy)
+						if err != nil {
+							return fmt.Errorf("marshal feature %s: %s", val, err)
+						}
+						reqjson[dev.colorProperty] = xyjson
+					} else {
+						dev.log.Errorf("no converter for %s", val)
+						return fmt.Errorf("no converter for %s", val)
+					}
+				}
+
 			default:
 				dev.log.Errorf("unsupported request value: %s", val)
 				return fmt.Errorf("unsupported request value: %s", val)
