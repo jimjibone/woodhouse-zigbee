@@ -103,6 +103,7 @@ func (dev *ZigbeeLight) UpdateInfo(info DeviceInfo) {
 						} else {
 							dev.log.Debugf("on expose %q: %s", dev.onProperty, dev.onConverter)
 						}
+						dev.lightbulb.On.Set(false)
 
 					case "brightness":
 						dev.briProperty = featureExpose.Property
@@ -112,6 +113,7 @@ func (dev *ZigbeeLight) UpdateInfo(info DeviceInfo) {
 						} else {
 							dev.log.Debugf("brightness expose %q: %s", dev.briProperty, dev.briConverter)
 						}
+						dev.lightbulb.Brightness.Set(0)
 
 					case "color_temp":
 						dev.ctProperty = featureExpose.Property
@@ -120,6 +122,13 @@ func (dev *ZigbeeLight) UpdateInfo(info DeviceInfo) {
 							dev.log.Errorf("failed to unmarshal light color_temp: %s -- %s", err, expose)
 						} else {
 							dev.log.Debugf("color_temp expose %q: %s", dev.ctProperty, dev.ctConverter)
+						}
+						if dev.ctConverter.ValueMin != nil && dev.ctConverter.ValueMax != nil && dev.ctConverter.ValueStep != nil {
+							dev.lightbulb.ColorTemp.SetLimits(int64(*dev.ctConverter.ValueMin), int64(*dev.ctConverter.ValueMax), uint64(*dev.ctConverter.ValueStep))
+							dev.lightbulb.ColorTemp.Set(int64(*dev.ctConverter.ValueMin))
+						} else {
+							min, _, _ := dev.lightbulb.ColorTemp.GetLimits()
+							dev.lightbulb.ColorTemp.Set(min)
 						}
 
 					case "color_xy":
@@ -203,62 +212,14 @@ func (dev *ZigbeeLight) UpdateInfo(info DeviceInfo) {
 			dev.log.Errorf("unsupported expose type %q: %s", expose.Type, expose)
 		}
 
-		// If the info reports x/y support but not hue/sat then don't allow color control.
 		if dev.colorHueProperty == "" && dev.colorSatProperty == "" {
+			// If the info reports x/y support but not hue/sat then don't allow
+			// color control.
 			dev.ignoreColor = true
+		} else {
+			// Otherwise set default values.
+			dev.lightbulb.Color.Set(0, 0, 0, 0)
 		}
-
-		// switch expose.Type {
-		// case "binary":
-		// 	conv, err := converters.NewBinary(expose.Data)
-		// 	if err != nil {
-		// 		dev.log.Errorf("binary %q: %w", expose.Property, err)
-		// 	} else {
-		// 		dev.log.Debugf("binary %s: %s", expose.Property, conv)
-		// 		dev.converters[expose.Property] = conv
-		// 	}
-
-		// case "numeric":
-		// 	conv, err := converters.NewNumeric(expose.Data)
-		// 	if err != nil {
-		// 		dev.log.Errorf("numeric %q: %w", expose.Property, err)
-		// 	} else {
-		// 		dev.log.Debugf("numeric %s: %s", expose.Property, conv)
-		// 		dev.converters[expose.Property] = conv
-		// 	}
-
-		// case "enum":
-		// 	conv, err := converters.NewEnum(expose.Data)
-		// 	if err != nil {
-		// 		dev.log.Errorf("enum %q: %w", expose.Property, err)
-		// 	} else {
-		// 		dev.log.Debugf("enum %s: %s", expose.Property, conv)
-		// 		dev.converters[expose.Property] = conv
-		// 	}
-
-		// case "text":
-		// 	conv, err := converters.NewText(expose.Data)
-		// 	if err != nil {
-		// 		dev.log.Errorf("text %q: %w", expose.Property, err)
-		// 	} else {
-		// 		dev.log.Debugf("text %s: %s", expose.Property, conv)
-		// 		dev.converters[expose.Property] = conv
-		// 	}
-
-		// case "light", "climate", "switch", "fan", "cover", "lock":
-		// 	convs, err := converters.NewFeature(expose.Data)
-		// 	if err != nil {
-		// 		dev.log.Errorf("feature %q: %w", expose.Type, err)
-		// 	} else {
-		// 		for property, conv := range convs {
-		// 			dev.log.Debugf("feature %s.%s: %s", expose.Type, property, conv)
-		// 			dev.converters[property] = conv
-		// 		}
-		// 	}
-
-		// default:
-		// 	dev.log.Errorf("unknown expose type %q", expose.Type)
-		// }
 	}
 }
 
