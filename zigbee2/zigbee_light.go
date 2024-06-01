@@ -203,13 +203,13 @@ func (dev *ZigbeeLight) UpdateInfo(info DeviceInfo) {
 						// ignore
 
 					default:
-						dev.log.Errorf("unsupported light expose %q: %s", featureExpose.Name, featureExpose)
+						dev.log.Warnf("unsupported light expose %q: %s", featureExpose.Name, featureExpose)
 					}
 				}
 			}
 
 		default:
-			dev.log.Errorf("unsupported expose type %q: %s", expose.Type, expose)
+			dev.log.Warnf("unsupported expose type %q: %s", expose.Type, expose)
 		}
 
 		if dev.colorHueProperty == "" && dev.colorSatProperty == "" {

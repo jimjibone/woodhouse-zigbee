@@ -33,7 +33,7 @@ func GenerateDevice(info DeviceInfo, client *wh.Client, baseUrl string, requests
 		return NewZigbeeLight(info, client, baseUrl, requests)
 
 	default:
-		log.Warnf("unsupported first exposed type: %s", firstExpose.Type)
+		log.Errorf("unsupported first exposed type: %s", firstExpose.Type)
 	}
 	return nil
 }
