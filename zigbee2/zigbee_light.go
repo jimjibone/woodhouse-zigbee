@@ -3,6 +3,7 @@ package zigbee
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 
 	clientsapi "github.com/jimjibone/woodhouse-4/api/go/v1/clients"
 	"github.com/jimjibone/woodhouse-4/log"
@@ -250,7 +251,7 @@ func (dev *ZigbeeLight) UpdateState(state DeviceState) {
 			} else {
 				var bri int64
 				if dev.briConverter.ValueMax != nil {
-					bri = int64(val / *dev.briConverter.ValueMax * 100.0)
+					bri = int64(math.Ceil(val / *dev.briConverter.ValueMax * 100.0))
 				} else {
 					bri = int64(val)
 				}
