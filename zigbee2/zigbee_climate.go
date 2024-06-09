@@ -24,6 +24,7 @@ type ZigbeeClimate struct {
 	info    *services.Info
 	online  *services.Online
 	climate *services.Climate
+	battery *services.Battery
 
 	heatingSetpointProperty  string
 	heatingSetpointConverter *NumericConverter
@@ -33,6 +34,12 @@ type ZigbeeClimate struct {
 
 	piHeatingDemandProperty  string
 	piHeatingDemandConverter *NumericConverter
+
+	batteryProperty  string
+	batteryConverter *NumericConverter
+
+	voltageProperty  string
+	voltageConverter *NumericConverter
 }
 
 func NewZigbeeClimate(info DeviceInfo, client *wh.Client, baseUrl string, requests func(ZigbeeRequest)) *ZigbeeClimate {
@@ -45,6 +52,7 @@ func NewZigbeeClimate(info DeviceInfo, client *wh.Client, baseUrl string, reques
 		info:     services.NewInfo(),
 		online:   services.NewOnline(),
 		climate:  services.NewClimate("climate"),
+		// battery: created when detected
 	}
 
 	dev.dev.AddService(
@@ -75,6 +83,7 @@ func (dev *ZigbeeClimate) UpdateInfo(info DeviceInfo) {
 
 	dev.log.Debugf("info: %v", info)
 
+	var err error
 	for _, expose := range info.Definition.Exposes {
 		switch expose.Type {
 		case "climate":
@@ -138,6 +147,42 @@ func (dev *ZigbeeClimate) UpdateInfo(info DeviceInfo) {
 				}
 			}
 
+		case "numeric":
+			switch {
+			case expose.Property == "battery" && expose.Category == "diagnostic":
+				dev.batteryProperty = expose.Property
+				dev.batteryConverter, err = UnmarshalNumeric(expose.Data)
+				if err != nil {
+					dev.log.Errorf("failed to unmarshal battery level value: %s -- %s", err, expose)
+				} else {
+					dev.log.Debugf("battery level value expose %q: %s", dev.batteryProperty, dev.batteryConverter)
+				}
+				if dev.battery == nil {
+					dev.battery = services.NewBattery("")
+					dev.dev.AddService(dev.battery)
+				}
+				dev.battery.Level.Set(0)
+
+			case expose.Property == "voltage" && expose.Category == "diagnostic":
+				dev.voltageProperty = expose.Property
+				dev.voltageConverter, err = UnmarshalNumeric(expose.Data)
+				if err != nil {
+					dev.log.Errorf("failed to unmarshal battery voltage value: %s -- %s", err, expose)
+				} else {
+					dev.log.Debugf("battery voltage value expose %q: %s", dev.voltageProperty, dev.voltageConverter)
+				}
+				if dev.battery == nil {
+					dev.battery = services.NewBattery("")
+					dev.dev.AddService(dev.battery)
+				}
+				if dev.voltageConverter.ValueMin != nil && dev.voltageConverter.ValueMax != nil && dev.voltageConverter.ValueStep != nil {
+					dev.battery.Voltage.SetLimits(*dev.voltageConverter.ValueMin, *dev.voltageConverter.ValueMax, *dev.voltageConverter.ValueStep)
+					dev.battery.Voltage.Set(*dev.voltageConverter.ValueMin)
+				} else {
+					dev.battery.Voltage.Set(0)
+				}
+			}
+
 		default:
 			dev.log.Warnf("unsupported expose type %q: %s", expose.Type, expose)
 		}
@@ -181,6 +226,25 @@ func (dev *ZigbeeClimate) UpdateState(state DeviceState) {
 				piHeatingDemand := int64(val)
 				dev.log.Debugf("pi heating demand value %q: %f -> %d", dev.piHeatingDemandProperty, val, piHeatingDemand)
 				dev.climate.PIHeatingDemand.Set(piHeatingDemand)
+			}
+
+		case dev.batteryProperty:
+			val, err := dev.batteryConverter.UnmarshalValue(value)
+			if err != nil {
+				dev.log.Errorf("failed to unmarshal battery level value %q: %s", value, err)
+			} else {
+				level := int64(val)
+				dev.log.Debugf("battery level value %q: %f -> %d", dev.batteryProperty, val, level)
+				dev.battery.Level.Set(level)
+			}
+
+		case dev.voltageProperty:
+			val, err := dev.voltageConverter.UnmarshalValue(value)
+			if err != nil {
+				dev.log.Errorf("failed to unmarshal battery voltage value %q: %s", value, err)
+			} else {
+				dev.log.Debugf("battery voltage value %q: %v", dev.voltageProperty, val)
+				dev.battery.Voltage.Set(val)
 			}
 
 		default:

@@ -8,6 +8,7 @@ import (
 
 type ExposeInfo struct {
 	Access      ExposeAccess `json:"access"` // (optional)
+	Category    string       `json:"category"`
 	Description string       `json:"description"`
 	Name        string       `json:"name"`
 	Property    string       `json:"property"`
@@ -16,8 +17,9 @@ type ExposeInfo struct {
 }
 
 func (e ExposeInfo) String() string {
-	return fmt.Sprintf("access:%s, desc:%s, name:%s, prop:%s, type:%s, data:%s",
+	return fmt.Sprintf("access:%s, category:%s, desc:%s, name:%s, prop:%s, type:%s, data:%s",
 		e.Access,
+		e.Category,
 		e.Description,
 		e.Name,
 		e.Property,
@@ -39,6 +41,7 @@ func (e *ExposeInfo) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	delete(raw, "access")
+	delete(raw, "category")
 	delete(raw, "description")
 	delete(raw, "name")
 	delete(raw, "property")
