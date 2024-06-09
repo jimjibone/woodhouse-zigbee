@@ -32,6 +32,12 @@ func GenerateDevice(info DeviceInfo, client *wh.Client, baseUrl string, requests
 	case "light":
 		return NewZigbeeLight(info, client, baseUrl, requests)
 
+	case "switch":
+		log.Errorf("unsupported first exposed type: %s", firstExpose.Type)
+
+	case "climate":
+		return NewZigbeeClimate(info, client, baseUrl, requests)
+
 	default:
 		log.Errorf("unsupported first exposed type: %s", firstExpose.Type)
 	}
