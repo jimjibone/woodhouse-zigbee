@@ -103,6 +103,7 @@ func (wrapper *WrapperBattery) UpdateState(state DeviceState) (handled []string)
 			if err != nil {
 				wrapper.log.Errorf("failed to unmarshal battery voltage value %q: %s", value, err)
 			} else {
+				val = val / 1000.0 // millivolts to volts
 				wrapper.log.Debugf("battery voltage value %q: %v", wrapper.voltageProperty, val)
 				wrapper.battery.Voltage.Set(val)
 			}
