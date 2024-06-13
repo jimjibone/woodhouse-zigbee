@@ -38,6 +38,9 @@ type WrapperLight struct {
 	colorYProperty    string
 	colorXConverter   *NumericConverter
 	colorYConverter   *NumericConverter
+
+	transitionProperty  string
+	transitionConverter *NumericConverter
 }
 
 func SupportsLight(info DeviceInfo) bool {
@@ -194,6 +197,22 @@ func (wrapper *WrapperLight) UpdateInfo(info DeviceInfo) (handled []HandledExpos
 	} else {
 		// Otherwise set default values.
 		wrapper.lightbulb.Color.Set(0, 0, 0, 0)
+	}
+
+	var err error
+	for _, option := range info.Definition.Options {
+		switch {
+		case option.Name == "transition" && option.Type == "numeric":
+			handled = append(handled, HandledExpose{option.Type, option.Property})
+			wrapper.transitionProperty = option.Property
+			wrapper.transitionConverter, err = UnmarshalNumeric(option.Data)
+			if err != nil {
+				wrapper.log.Errorf("failed to unmarshal transition option: %s -- %s", err, option)
+			} else {
+				wrapper.log.Debugf("transition value option %q: %s", wrapper.transitionProperty, wrapper.transitionConverter)
+			}
+			wrapper.lightbulb.Transition.Set(0)
+		}
 	}
 
 	return handled
@@ -398,6 +417,19 @@ func (wrapper *WrapperLight) handleAction(request *clientsapi.ActionRequest, fee
 						wrapper.log.Errorf("no converter for %s", val)
 						return fmt.Errorf("no converter for %s", val)
 					}
+				}
+
+			case wrapper.lightbulb.Transition.ID():
+				if wrapper.transitionConverter != nil {
+					transition := math.Round(float64(val.GetDuration().GetValue()) / 1000.0) // millis to seconds
+					valjson, err := wrapper.transitionConverter.MarshalValue(transition)
+					if err != nil {
+						return fmt.Errorf("marshal %s: %s", val, err)
+					}
+					reqjson[wrapper.transitionProperty] = valjson
+				} else {
+					wrapper.log.Errorf("no converter for %s", val)
+					return fmt.Errorf("no converter for %s", val)
 				}
 
 			default:

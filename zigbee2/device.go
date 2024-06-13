@@ -20,6 +20,9 @@ type ZigbeeRequest struct {
 }
 
 func GenerateDevice(info DeviceInfo, client *wh.Client, baseUrl string, requests func(ZigbeeRequest)) ZigbeeDevice {
+	if info.Type == "Coordinator" {
+		return nil
+	}
 	if !info.InterviewCompleted {
 		return nil
 	}
