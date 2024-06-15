@@ -69,6 +69,7 @@ func (wrapper *WrapperLight) UpdateInfo(info DeviceInfo) (handled []HandledExpos
 	for _, expose := range info.Definition.Exposes {
 		switch expose.Type {
 		case "light":
+			handled = append(handled, HandledExpose{Type: expose.Type, Property: expose.Property})
 			feature, err := UnmarshalFeature(expose.Data)
 			if err != nil {
 				wrapper.log.Errorf("failed to unmarshal light: %s -- %s", err, expose)

@@ -17,13 +17,13 @@ type ExposeInfo struct {
 }
 
 func (e ExposeInfo) String() string {
-	return fmt.Sprintf("access:%s, category:%s, desc:%s, name:%s, prop:%s, type:%s, data:%s",
-		e.Access,
-		e.Category,
-		e.Description,
+	return fmt.Sprintf("name: %q, prop: %q, type: %q, category: %q, desc: %q, access: %s, data: %q",
 		e.Name,
 		e.Property,
 		e.Type,
+		e.Category,
+		e.Description,
+		e.Access,
 		e.Data,
 	)
 }

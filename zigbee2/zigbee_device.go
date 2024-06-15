@@ -11,7 +11,7 @@ import (
 	"github.com/jimjibone/woodhouse-4/wh/v1/devices/services"
 )
 
-type ZigbeeClimate struct {
+type ZigbeeDeviceImpl struct {
 	log    *log.Context
 	client *wh.Client
 	added  bool
@@ -24,17 +24,18 @@ type ZigbeeClimate struct {
 	info   *services.Info
 	online *services.Online
 
-	climate *WrapperClimate
 	battery *WrapperBattery
+	climate *WrapperClimate
+	light   *WrapperLight
 }
 
-func NewZigbeeClimate(info DeviceInfo, client *wh.Client, baseUrl string, requests func(ZigbeeRequest)) *ZigbeeClimate {
-	dev := &ZigbeeClimate{
+func NewZigbeeDeviceImpl(info DeviceInfo, client *wh.Client, baseUrl string, requests func(ZigbeeRequest)) *ZigbeeDeviceImpl {
+	dev := &ZigbeeDeviceImpl{
 		log:      log.NewContext(log.DefaultLogger, info.IEEEAddress, log.DebugLevel),
 		client:   client,
 		baseUrl:  baseUrl,
 		requests: requests,
-		dev:      devices.NewDevice(info.IEEEAddress, clientsapi.Device_CLIMATE),
+		dev:      devices.NewDevice(info.IEEEAddress, clientsapi.Device_GENERIC),
 		info:     services.NewInfo(),
 		online:   services.NewOnline(),
 	}
@@ -44,17 +45,21 @@ func NewZigbeeClimate(info DeviceInfo, client *wh.Client, baseUrl string, reques
 		dev.online,
 	)
 
-	dev.log.Infof("created climate")
+	dev.log.Infof("created device")
 
 	dev.UpdateInfo(info)
 
 	return dev
 }
 
-func (dev *ZigbeeClimate) Device() *devices.Device { return dev.dev }
-func (dev *ZigbeeClimate) Name() string            { return dev.friendlyName }
+func (dev *ZigbeeDeviceImpl) Device() *devices.Device { return dev.dev }
+func (dev *ZigbeeDeviceImpl) Name() string            { return dev.friendlyName }
 
-func (dev *ZigbeeClimate) UpdateInfo(info DeviceInfo) {
+func (dev *ZigbeeDeviceImpl) sendZigbeeRequest(payload []byte) {
+	dev.requests(ZigbeeRequest{Topic: dev.friendlyName + "/set", Payload: payload})
+}
+
+func (dev *ZigbeeDeviceImpl) UpdateInfo(info DeviceInfo) {
 	dev.friendlyName = info.FriendlyName
 	dev.info.Name.Set(info.FriendlyName)
 	dev.info.Model.Set(info.ModelID)
@@ -67,20 +72,25 @@ func (dev *ZigbeeClimate) UpdateInfo(info DeviceInfo) {
 
 	var handled []HandledExpose
 
-	if dev.climate == nil && SupportsClimate(info) {
-		dev.climate = NewWrapperClimate(dev.log, dev.dev, func(payload []byte) {
-			dev.requests(ZigbeeRequest{Topic: dev.friendlyName + "/set", Payload: payload})
-		})
-	}
-	if dev.climate != nil {
-		handled = append(handled, dev.climate.UpdateInfo(info)...)
-	}
-
 	if dev.battery == nil && SupportsBattery(info) {
 		dev.battery = NewWrapperBattery(dev.log, dev.dev)
 	}
 	if dev.battery != nil {
 		handled = append(handled, dev.battery.UpdateInfo(info)...)
+	}
+
+	if dev.climate == nil && SupportsClimate(info) {
+		dev.climate = NewWrapperClimate(dev.log, dev.dev, dev.sendZigbeeRequest)
+	}
+	if dev.climate != nil {
+		handled = append(handled, dev.climate.UpdateInfo(info)...)
+	}
+
+	if dev.light == nil && SupportsLight(info) {
+		dev.light = NewWrapperLight(dev.log, dev.dev, dev.sendZigbeeRequest)
+	}
+	if dev.light != nil {
+		handled = append(handled, dev.light.UpdateInfo(info)...)
 	}
 
 	// Check for unsupported expose types.
@@ -91,21 +101,24 @@ func (dev *ZigbeeClimate) UpdateInfo(info DeviceInfo) {
 	}
 }
 
-func (dev *ZigbeeClimate) UpdateOnline(online bool) {
+func (dev *ZigbeeDeviceImpl) UpdateOnline(online bool) {
 	dev.online.Online.Set(online)
 }
 
-func (dev *ZigbeeClimate) UpdateState(state DeviceState) {
+func (dev *ZigbeeDeviceImpl) UpdateState(state DeviceState) {
 	dev.log.Debugf("state: %v", state)
 
 	dev.online.LastSeen.Set(state.LastSeen)
 
 	var handled []string
+	if dev.battery != nil {
+		handled = append(handled, dev.battery.UpdateState(state)...)
+	}
 	if dev.climate != nil {
 		handled = append(handled, dev.climate.UpdateState(state)...)
 	}
-	if dev.battery != nil {
-		handled = append(handled, dev.battery.UpdateState(state)...)
+	if dev.light != nil {
+		handled = append(handled, dev.light.UpdateState(state)...)
 	}
 
 	// Check for unhandled properties.
