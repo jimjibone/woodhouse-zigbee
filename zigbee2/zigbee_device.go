@@ -24,10 +24,11 @@ type ZigbeeDeviceImpl struct {
 	info   *services.Info
 	online *services.Online
 
-	action  *WrapperAction
-	battery *WrapperBattery
-	climate *WrapperClimate
-	light   *WrapperLight
+	action      *WrapperAction
+	battery     *WrapperBattery
+	climate     *WrapperClimate
+	light       *WrapperLight
+	environment *WrapperEnvironment
 }
 
 func NewZigbeeDeviceImpl(info DeviceInfo, client *wh.Client, baseUrl string, requests func(ZigbeeRequest)) *ZigbeeDeviceImpl {
@@ -101,6 +102,13 @@ func (dev *ZigbeeDeviceImpl) UpdateInfo(info DeviceInfo) {
 		handled = append(handled, dev.light.UpdateInfo(info)...)
 	}
 
+	if dev.environment == nil && SupportsEnvironment(info) {
+		dev.environment = NewWrapperEnvironment(dev.log, dev.dev)
+	}
+	if dev.environment != nil {
+		handled = append(handled, dev.environment.UpdateInfo(info)...)
+	}
+
 	// Check for unsupported expose types.
 	for _, expose := range info.Definition.Exposes {
 		if !slices.Contains(handled, HandledExpose{expose.Type, expose.Property}) {
@@ -130,6 +138,9 @@ func (dev *ZigbeeDeviceImpl) UpdateState(state DeviceState) {
 	}
 	if dev.light != nil {
 		handled = append(handled, dev.light.UpdateState(state)...)
+	}
+	if dev.environment != nil {
+		handled = append(handled, dev.environment.UpdateState(state)...)
 	}
 
 	// Check for unhandled properties.
