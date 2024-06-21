@@ -24,6 +24,7 @@ type ZigbeeDeviceImpl struct {
 	info   *services.Info
 	online *services.Online
 
+	action  *WrapperAction
 	battery *WrapperBattery
 	climate *WrapperClimate
 	light   *WrapperLight
@@ -72,6 +73,13 @@ func (dev *ZigbeeDeviceImpl) UpdateInfo(info DeviceInfo) {
 
 	var handled []HandledExpose
 
+	if dev.action == nil && SupportsAction(info) {
+		dev.action = NewWrapperAction(dev.log, dev.dev)
+	}
+	if dev.action != nil {
+		handled = append(handled, dev.action.UpdateInfo(info)...)
+	}
+
 	if dev.battery == nil && SupportsBattery(info) {
 		dev.battery = NewWrapperBattery(dev.log, dev.dev)
 	}
@@ -111,6 +119,9 @@ func (dev *ZigbeeDeviceImpl) UpdateState(state DeviceState) {
 	dev.online.LastSeen.Set(state.LastSeen)
 
 	var handled []string
+	if dev.action != nil {
+		handled = append(handled, dev.action.UpdateState(state)...)
+	}
 	if dev.battery != nil {
 		handled = append(handled, dev.battery.UpdateState(state)...)
 	}
