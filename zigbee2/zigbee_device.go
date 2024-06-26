@@ -24,12 +24,14 @@ type ZigbeeDeviceImpl struct {
 	info   *services.Info
 	online *services.Online
 
+	update      *WrapperUpdate
 	action      *WrapperAction
 	battery     *WrapperBattery
 	climate     *WrapperClimate
 	light       *WrapperLight
 	environment *WrapperEnvironment
 	contact     *WrapperContact
+	generic     *WrapperGeneric
 }
 
 func NewZigbeeDeviceImpl(info DeviceInfo, client *wh.Client, baseUrl string, requests func(ZigbeeRequest)) *ZigbeeDeviceImpl {
@@ -75,6 +77,13 @@ func (dev *ZigbeeDeviceImpl) UpdateInfo(info DeviceInfo) {
 
 	var handled []HandledExpose
 
+	if dev.update == nil && SupportsUpdate(info) {
+		dev.update = NewWrapperUpdate(dev.log, dev.dev, dev.sendZigbeeRequest)
+	}
+	if dev.update != nil {
+		handled = append(handled, dev.update.UpdateInfo(info)...)
+	}
+
 	if dev.action == nil && SupportsAction(info) {
 		dev.action = NewWrapperAction(dev.log, dev.dev)
 	}
@@ -117,6 +126,14 @@ func (dev *ZigbeeDeviceImpl) UpdateInfo(info DeviceInfo) {
 		handled = append(handled, dev.contact.UpdateInfo(info)...)
 	}
 
+	// Add unhandled properties to the generic service.
+	if dev.generic == nil && len(handled) < len(info.Definition.Exposes) {
+		dev.generic = NewWrapperGeneric(dev.log, dev.dev)
+	}
+	if dev.generic != nil {
+		handled = append(handled, dev.generic.UpdateInfo(info, handled)...)
+	}
+
 	// Check for unsupported expose types.
 	for _, expose := range info.Definition.Exposes {
 		if !slices.Contains(handled, HandledExpose{expose.Type, expose.Property}) {
@@ -135,6 +152,9 @@ func (dev *ZigbeeDeviceImpl) UpdateState(state DeviceState) {
 	dev.online.LastSeen.Set(state.LastSeen)
 
 	var handled []string
+	if dev.update != nil {
+		handled = append(handled, dev.update.UpdateState(state)...)
+	}
 	if dev.action != nil {
 		handled = append(handled, dev.action.UpdateState(state)...)
 	}
@@ -152,6 +172,9 @@ func (dev *ZigbeeDeviceImpl) UpdateState(state DeviceState) {
 	}
 	if dev.contact != nil {
 		handled = append(handled, dev.contact.UpdateState(state)...)
+	}
+	if dev.generic != nil {
+		handled = append(handled, dev.generic.UpdateState(state, handled)...)
 	}
 
 	// Check for unhandled properties.

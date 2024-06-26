@@ -8,6 +8,7 @@ type DeviceInfo struct {
 		Vendor      string       `json:"vendor"`
 		Exposes     []ExposeInfo `json:"exposes"`
 		Options     []ExposeInfo `json:"options"`
+		SupportsOTA bool         `json:"supports_ota"`
 	} `json:"definition"`
 	Endpoints map[string]struct {
 		Bindings []*struct {
