@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -150,7 +151,7 @@ func (zb *ZigbeeWebsockets) recv(ctx context.Context, conn *websocket.Conn) {
 			// Ignore these.
 
 		default:
-			// zb.log.Printf("----> recv: %s", message)
+			// zb.log.Debugf("----> recv: %s", message)
 			if strings.HasSuffix(frame.Topic, "/availability") {
 				zb.handleDeviceAvailability(strings.TrimSuffix(frame.Topic, "/availability"), frame.Payload)
 			} else {
@@ -204,7 +205,6 @@ func (zb *ZigbeeWebsockets) handleDeviceInfos(payload []byte) {
 
 	// Update or create devices.
 	for _, info := range devices {
-		// if info.IEEEAddress == "0xdeadbeef" {
 		if dev, found := zb.devices[info.IEEEAddress]; found {
 			dev.UpdateInfo(info)
 		} else {
@@ -213,13 +213,18 @@ func (zb *ZigbeeWebsockets) handleDeviceInfos(payload []byte) {
 				zb.devices[info.IEEEAddress] = dev
 			}
 		}
-		//}
 	}
 }
 
 func (zb *ZigbeeWebsockets) handleDeviceAvailability(friendlyName string, payload []byte) {
+	if len(payload) == 0 {
+		return
+	}
+	if bytes.Equal(payload, []byte(`null`)) {
+		return
+	}
+
 	// Update device.
-	// if friendlyName == "My Lamp" {
 	if dev := zb.findDeviceByName(friendlyName); dev != nil {
 		switch string(payload) {
 		case `"online"`:
@@ -227,21 +232,26 @@ func (zb *ZigbeeWebsockets) handleDeviceAvailability(friendlyName string, payloa
 		case `"offline"`:
 			dev.UpdateOnline(false)
 		default:
-			zb.log.Errorf("received unexpected device availability for unknown device: %q %s", friendlyName, payload)
+			zb.log.Errorf("received unexpected device availability for unknown device: %q %q", friendlyName, payload)
 		}
 	} else {
-		zb.log.Errorf("received device availability for unknown device: %q %s", friendlyName, payload)
+		zb.log.Errorf("received device availability for unknown device: %q %q", friendlyName, payload)
 	}
-	//}
 }
 
 func (zb *ZigbeeWebsockets) handleDeviceState(friendlyName string, payload []byte) {
 	// zb.log.Printf("device state: %s: %s", friendlyName, payload)
+	if len(payload) == 0 {
+		return
+	}
+	if bytes.Equal(payload, []byte(`""`)) {
+		return
+	}
 
-	// if friendlyName == "My Lamp" {
 	var state zigbee.DeviceState
 	if err := json.Unmarshal(payload, &state); err != nil {
-		zb.log.Errorf("failed to unmarshal device state: %v", err)
+		zb.log.Errorf("failed to unmarshal device state - error: %v", err)
+		zb.log.Errorf("failed to unmarshal device state - friendlyName: %q, payload: %s", friendlyName, payload)
 		return
 	}
 
