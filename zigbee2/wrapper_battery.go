@@ -60,7 +60,9 @@ func (wrapper *WrapperBattery) UpdateInfo(info DeviceInfo) (handled []HandledExp
 				} else {
 					wrapper.log.Debugf("battery level value expose %q: %s", wrapper.batteryProperty, wrapper.batteryConverter)
 				}
-				wrapper.battery.Level.Set(0)
+				if !wrapper.battery.Level.IsSet() {
+					wrapper.battery.Level.Set(0)
+				}
 
 			case expose.Property == "voltage" && expose.Category == "diagnostic":
 				handled = append(handled, HandledExpose{expose.Type, expose.Property})
@@ -73,9 +75,14 @@ func (wrapper *WrapperBattery) UpdateInfo(info DeviceInfo) (handled []HandledExp
 				}
 				if wrapper.voltageConverter.ValueMin != nil && wrapper.voltageConverter.ValueMax != nil && wrapper.voltageConverter.ValueStep != nil {
 					wrapper.battery.Voltage.SetLimits(*wrapper.voltageConverter.ValueMin, *wrapper.voltageConverter.ValueMax, *wrapper.voltageConverter.ValueStep)
-					wrapper.battery.Voltage.Set(*wrapper.voltageConverter.ValueMin)
+
+					if !wrapper.battery.Voltage.IsSet() {
+						wrapper.battery.Voltage.Set(*wrapper.voltageConverter.ValueMin)
+					}
 				} else {
-					wrapper.battery.Voltage.Set(0)
+					if !wrapper.battery.Voltage.IsSet() {
+						wrapper.battery.Voltage.Set(0)
+					}
 				}
 			}
 		}

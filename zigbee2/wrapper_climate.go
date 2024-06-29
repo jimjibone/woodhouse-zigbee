@@ -71,10 +71,14 @@ func (wrapper *WrapperClimate) UpdateInfo(info DeviceInfo) (handled []HandledExp
 						}
 						if wrapper.heatingSetpointConverter.ValueMin != nil && wrapper.heatingSetpointConverter.ValueMax != nil && wrapper.heatingSetpointConverter.ValueStep != nil {
 							wrapper.climate.HeatingSetpoint.SetLimits(*wrapper.heatingSetpointConverter.ValueMin, *wrapper.heatingSetpointConverter.ValueMax, *wrapper.heatingSetpointConverter.ValueStep)
-							wrapper.climate.HeatingSetpoint.Set(*wrapper.heatingSetpointConverter.ValueMin)
+							if !wrapper.climate.HeatingSetpoint.IsSet() {
+								wrapper.climate.HeatingSetpoint.Set(*wrapper.heatingSetpointConverter.ValueMin)
+							}
 						} else {
-							min, _, _ := wrapper.climate.HeatingSetpoint.GetLimits()
-							wrapper.climate.HeatingSetpoint.Set(min)
+							if !wrapper.climate.HeatingSetpoint.IsSet() {
+								min, _, _ := wrapper.climate.HeatingSetpoint.GetLimits()
+								wrapper.climate.HeatingSetpoint.Set(min)
+							}
 						}
 
 					case "local_temperature":
@@ -87,10 +91,14 @@ func (wrapper *WrapperClimate) UpdateInfo(info DeviceInfo) (handled []HandledExp
 						}
 						if wrapper.localTemperatureConverter.ValueMin != nil && wrapper.localTemperatureConverter.ValueMax != nil && wrapper.localTemperatureConverter.ValueStep != nil {
 							wrapper.climate.LocalTemperature.SetLimits(*wrapper.localTemperatureConverter.ValueMin, *wrapper.localTemperatureConverter.ValueMax, *wrapper.localTemperatureConverter.ValueStep)
-							wrapper.climate.LocalTemperature.Set(*wrapper.localTemperatureConverter.ValueMin)
+							if !wrapper.climate.LocalTemperature.IsSet() {
+								wrapper.climate.LocalTemperature.Set(*wrapper.localTemperatureConverter.ValueMin)
+							}
 						} else {
-							min, _, _ := wrapper.climate.LocalTemperature.GetLimits()
-							wrapper.climate.LocalTemperature.Set(min)
+							if !wrapper.climate.LocalTemperature.IsSet() {
+								min, _, _ := wrapper.climate.LocalTemperature.GetLimits()
+								wrapper.climate.LocalTemperature.Set(min)
+							}
 						}
 
 					case "pi_heating_demand":
@@ -103,10 +111,14 @@ func (wrapper *WrapperClimate) UpdateInfo(info DeviceInfo) (handled []HandledExp
 						}
 						if wrapper.piHeatingDemandConverter.ValueMin != nil && wrapper.piHeatingDemandConverter.ValueMax != nil && wrapper.piHeatingDemandConverter.ValueStep != nil {
 							wrapper.climate.PIHeatingDemand.SetLimits(int64(*wrapper.piHeatingDemandConverter.ValueMin), int64(*wrapper.piHeatingDemandConverter.ValueMax), uint64(*wrapper.piHeatingDemandConverter.ValueStep))
-							wrapper.climate.PIHeatingDemand.Set(int64(*wrapper.piHeatingDemandConverter.ValueMin))
+							if !wrapper.climate.PIHeatingDemand.IsSet() {
+								wrapper.climate.PIHeatingDemand.Set(int64(*wrapper.piHeatingDemandConverter.ValueMin))
+							}
 						} else {
-							min, _, _ := wrapper.climate.PIHeatingDemand.GetLimits()
-							wrapper.climate.PIHeatingDemand.Set(min)
+							if !wrapper.climate.PIHeatingDemand.IsSet() {
+								min, _, _ := wrapper.climate.PIHeatingDemand.GetLimits()
+								wrapper.climate.PIHeatingDemand.Set(min)
+							}
 						}
 
 					default:

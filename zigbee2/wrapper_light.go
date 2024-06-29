@@ -84,7 +84,9 @@ func (wrapper *WrapperLight) UpdateInfo(info DeviceInfo) (handled []HandledExpos
 						} else {
 							wrapper.log.Debugf("on expose %q: %s", wrapper.onProperty, wrapper.onConverter)
 						}
-						wrapper.lightbulb.On.Set(false)
+						if !wrapper.lightbulb.On.IsSet() {
+							wrapper.lightbulb.On.Set(false)
+						}
 
 					case "brightness":
 						wrapper.briProperty = featureExpose.Property
@@ -94,7 +96,9 @@ func (wrapper *WrapperLight) UpdateInfo(info DeviceInfo) (handled []HandledExpos
 						} else {
 							wrapper.log.Debugf("brightness expose %q: %s", wrapper.briProperty, wrapper.briConverter)
 						}
-						wrapper.lightbulb.Brightness.Set(0)
+						if !wrapper.lightbulb.Brightness.IsSet() {
+							wrapper.lightbulb.Brightness.Set(0)
+						}
 
 					case "color_temp":
 						wrapper.ctProperty = featureExpose.Property
@@ -106,10 +110,14 @@ func (wrapper *WrapperLight) UpdateInfo(info DeviceInfo) (handled []HandledExpos
 						}
 						if wrapper.ctConverter.ValueMin != nil && wrapper.ctConverter.ValueMax != nil && wrapper.ctConverter.ValueStep != nil {
 							wrapper.lightbulb.ColorTemp.SetLimits(int64(*wrapper.ctConverter.ValueMin), int64(*wrapper.ctConverter.ValueMax), uint64(*wrapper.ctConverter.ValueStep))
-							wrapper.lightbulb.ColorTemp.Set(int64(*wrapper.ctConverter.ValueMin))
+							if !wrapper.lightbulb.ColorTemp.IsSet() {
+								wrapper.lightbulb.ColorTemp.Set(int64(*wrapper.ctConverter.ValueMin))
+							}
 						} else {
 							min, _, _ := wrapper.lightbulb.ColorTemp.GetLimits()
-							wrapper.lightbulb.ColorTemp.Set(min)
+							if !wrapper.lightbulb.ColorTemp.IsSet() {
+								wrapper.lightbulb.ColorTemp.Set(min)
+							}
 						}
 
 					case "color_xy":
@@ -197,7 +205,9 @@ func (wrapper *WrapperLight) UpdateInfo(info DeviceInfo) (handled []HandledExpos
 		wrapper.ignoreColor = true
 	} else {
 		// Otherwise set default values.
-		wrapper.lightbulb.Color.Set(0, 0, 0, 0)
+		if !wrapper.lightbulb.Color.IsSet() {
+			wrapper.lightbulb.Color.Set(0, 0, 0, 0)
+		}
 	}
 
 	var err error

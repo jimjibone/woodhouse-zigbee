@@ -54,7 +54,9 @@ func (wrapper *WrapperContact) UpdateInfo(info DeviceInfo) (handled []HandledExp
 				} else {
 					wrapper.log.Debugf("contact value expose %q: %s", wrapper.contactProperty, wrapper.contactConverter)
 				}
-				wrapper.contact.Closed.Set(false)
+				if !wrapper.contact.Closed.IsSet() {
+					wrapper.contact.Closed.Set(false)
+				}
 			}
 		}
 	}

@@ -66,7 +66,9 @@ func (wrapper *WrapperAction) UpdateInfo(info DeviceInfo) (handled []HandledExpo
 				} else {
 					wrapper.log.Debugf("action value expose %q: %s", wrapper.actionProperty, wrapper.actionConverter)
 				}
-				wrapper.button.State.Set("")
+				if !wrapper.button.State.IsSet() {
+					wrapper.button.State.Set("")
+				}
 				wrapper.button.State.SetOptions(wrapper.actionConverter.Values)
 			}
 
@@ -81,7 +83,9 @@ func (wrapper *WrapperAction) UpdateInfo(info DeviceInfo) (handled []HandledExpo
 				} else {
 					wrapper.log.Debugf("action_duration value expose %q: %s", wrapper.actionDurationProperty, wrapper.actionDurationConverter)
 				}
-				wrapper.button.Duration.Set(0)
+				if !wrapper.button.Duration.IsSet() {
+					wrapper.button.Duration.Set(0)
+				}
 			}
 		}
 	}

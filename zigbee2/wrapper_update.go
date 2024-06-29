@@ -47,7 +47,9 @@ func NewWrapperUpdate(log *log.Context, dev *devices.Device, requests func(paylo
 
 func (wrapper *WrapperUpdate) UpdateInfo(info DeviceInfo) (handled []HandledExpose) {
 	// No info to be consumed for this one.
-	wrapper.update.Available.Set(false)
+	if !wrapper.update.Available.IsSet() {
+		wrapper.update.Available.Set(false)
+	}
 	return handled
 }
 

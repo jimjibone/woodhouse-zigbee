@@ -60,6 +60,9 @@ func (wrapper *WrapperGeneric) UpdateInfo(info DeviceInfo, ignore []HandledExpos
 						attribute.SetLimits(*converter.ValueMin, *converter.ValueMax, 0)
 					}
 				}
+				if !attribute.IsSet() {
+					attribute.Set(0.0)
+				}
 
 				wrapper.numerics[expose.Property] = &genericNumeric{
 					converter: converter,

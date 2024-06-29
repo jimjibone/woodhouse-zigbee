@@ -62,7 +62,9 @@ func (wrapper *WrapperEnvironment) UpdateInfo(info DeviceInfo) (handled []Handle
 				} else {
 					wrapper.log.Debugf("temperature value expose %q: %s", wrapper.temperatureProperty, wrapper.temperatureConverter)
 				}
-				wrapper.environment.Temperature.Set(0)
+				if !wrapper.environment.Temperature.IsSet() {
+					wrapper.environment.Temperature.Set(0)
+				}
 
 			case expose.Property == "humidity":
 				handled = append(handled, HandledExpose{expose.Type, expose.Property})
@@ -73,7 +75,9 @@ func (wrapper *WrapperEnvironment) UpdateInfo(info DeviceInfo) (handled []Handle
 				} else {
 					wrapper.log.Debugf("humidity value expose %q: %s", wrapper.humidityProperty, wrapper.humidityConverter)
 				}
-				wrapper.environment.Humidity.Set(0)
+				if !wrapper.environment.Humidity.IsSet() {
+					wrapper.environment.Humidity.Set(0)
+				}
 
 			case expose.Property == "pressure":
 				handled = append(handled, HandledExpose{expose.Type, expose.Property})
@@ -84,7 +88,9 @@ func (wrapper *WrapperEnvironment) UpdateInfo(info DeviceInfo) (handled []Handle
 				} else {
 					wrapper.log.Debugf("pressure value expose %q: %s", wrapper.pressureProperty, wrapper.pressureConverter)
 				}
-				wrapper.environment.Pressure.Set(0)
+				if !wrapper.environment.Pressure.IsSet() {
+					wrapper.environment.Pressure.Set(0)
+				}
 			}
 		}
 	}
