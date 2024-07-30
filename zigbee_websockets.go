@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	zigbee "github.com/jimjibone/woodhouse-4/cmd/woodhouse-zigbee/zigbee2"
+	"github.com/jimjibone/woodhouse-4/cmd/woodhouse-zigbee/zigbee"
 	"github.com/jimjibone/woodhouse-4/log"
 	"github.com/jimjibone/woodhouse-4/shared/stores"
 	"github.com/jimjibone/woodhouse-4/wh/v1"

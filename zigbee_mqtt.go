@@ -9,7 +9,7 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/jimjibone/queue/v2"
-	zigbee "github.com/jimjibone/woodhouse-4/cmd/woodhouse-zigbee/zigbee2"
+	"github.com/jimjibone/woodhouse-4/cmd/woodhouse-zigbee/zigbee"
 	"github.com/jimjibone/woodhouse-4/log"
 	"github.com/jimjibone/woodhouse-4/wh/v1"
 )
