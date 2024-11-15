@@ -280,8 +280,8 @@ func (zb *ZigbeeWebsockets) findDeviceByName(name string) zigbee.ZigbeeDevice {
 }
 
 func (zb *ZigbeeWebsockets) requestHandler(request zigbee.ZigbeeRequest) {
-	zb.connMu.RLock()
-	defer zb.connMu.RUnlock()
+	zb.connMu.Lock()
+	defer zb.connMu.Unlock()
 	if zb.conn == nil {
 		zb.log.Warnf("not connected to z2m for request %q", request.Topic)
 		return
