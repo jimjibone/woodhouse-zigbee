@@ -355,6 +355,11 @@ func (wrapper *WrapperLight) handleAction(request *clientsapi.ActionRequest, fee
 					var bri float64
 					if wrapper.briConverter.ValueMax != nil {
 						bri = float64(val.GetInt().GetValue()) / 100.0 * *wrapper.briConverter.ValueMax
+						if bri < 0.0 {
+							bri = 0.0
+						} else if bri > *wrapper.briConverter.ValueMax {
+							bri = *wrapper.briConverter.ValueMax
+						}
 					} else {
 						bri = float64(val.GetInt().GetValue())
 					}
