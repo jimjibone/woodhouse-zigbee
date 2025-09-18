@@ -31,6 +31,7 @@ type ZigbeeDeviceImpl struct {
 	light       *WrapperLight
 	environment *WrapperEnvironment
 	contact     *WrapperContact
+	cover       *WrapperCover
 	generic     *WrapperGeneric
 }
 
@@ -126,6 +127,13 @@ func (dev *ZigbeeDeviceImpl) UpdateInfo(info DeviceInfo) {
 		handled = append(handled, dev.contact.UpdateInfo(info)...)
 	}
 
+	if dev.cover == nil && SupportsCover(info) {
+		dev.cover = NewWrapperCover(dev.log, dev.dev, dev.sendZigbeeRequest)
+	}
+	if dev.cover != nil {
+		handled = append(handled, dev.cover.UpdateInfo(info)...)
+	}
+
 	// Add unhandled properties to the generic service.
 	if dev.generic == nil && len(handled) < len(info.Definition.Exposes) {
 		dev.generic = NewWrapperGeneric(dev.log, dev.dev)
@@ -181,6 +189,12 @@ func (dev *ZigbeeDeviceImpl) UpdateState(state DeviceState) {
 	for key, value := range state.Values {
 		if !slices.Contains(handled, key) {
 			dev.log.Errorf("unsupported state property %q: %s", key, value)
+
+			// // Add unhandled properties to the generic service.
+			// if dev.generic == nil {
+			// 	dev.generic = NewWrapperGeneric(dev.log, dev.dev)
+			// }
+			// handled = append(handled, dev.generic.UpdateState(state, handled)...)
 		}
 	}
 
