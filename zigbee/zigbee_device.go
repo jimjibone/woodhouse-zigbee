@@ -181,6 +181,9 @@ func (dev *ZigbeeDeviceImpl) UpdateState(state DeviceState) {
 	if dev.contact != nil {
 		handled = append(handled, dev.contact.UpdateState(state)...)
 	}
+	if dev.cover != nil {
+		handled = append(handled, dev.cover.UpdateState(state)...)
+	}
 	if dev.generic != nil {
 		handled = append(handled, dev.generic.UpdateState(state, handled)...)
 	}
