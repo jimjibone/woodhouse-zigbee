@@ -2,7 +2,10 @@ package zigbee
 
 import (
 	"encoding/json"
+	"fmt"
+	"time"
 
+	clientsapi "github.com/jimjibone/woodhouse-4/api/go/v1/clients"
 	"github.com/jimjibone/woodhouse-4/log"
 	"github.com/jimjibone/woodhouse-4/wh/v1/devices"
 	"github.com/jimjibone/woodhouse-4/wh/v1/devices/services"
@@ -11,8 +14,8 @@ import (
 var _ (Wrapper) = (*WrapperUpdate)(nil)
 
 type WrapperUpdate struct {
-	log      *log.Context
-	requests func(payload []byte)
+	log           *log.Context
+	requestUpdate func()
 
 	update *services.Update
 
@@ -22,25 +25,27 @@ type WrapperUpdate struct {
 type updateConverter struct {
 	InstalledVersion json.RawMessage `json:"installed_version"`
 	LatestVersion    json.RawMessage `json:"latest_version"`
-	State            string          `json:"state"`
+	State            string          `json:"state"`     // "available", "updating", "idle"
+	Progress         *float32        `json:"progress"`  // 7.01 (%)
+	Remaining        *float32        `json:"remaining"` // 952 (seconds)
 }
 
 func SupportsUpdate(info DeviceInfo) bool {
 	return info.Definition.SupportsOTA
 }
 
-func NewWrapperUpdate(log *log.Context, dev *devices.Device, requests func(payload []byte)) *WrapperUpdate {
+func NewWrapperUpdate(log *log.Context, dev *devices.Device, requests func()) *WrapperUpdate {
 	wrapper := &WrapperUpdate{
-		log:      log,
-		update:   services.NewUpdate(""),
-		requests: requests,
+		log:           log,
+		update:        services.NewUpdate(""),
+		requestUpdate: requests,
 
 		updateAvailableConverter: &BinaryConverter{
 			ValueOn:  "true",
 			ValueOff: "false",
 		},
 	}
-	// wrapper.update.OnAction(wrapper.handleAction)
+	wrapper.update.OnAction(wrapper.handleAction)
 	dev.AddService(wrapper.update)
 	return wrapper
 }
@@ -76,10 +81,47 @@ func (wrapper *WrapperUpdate) UpdateState(state DeviceState) (handled []string) 
 				wrapper.log.Debugf("update current: %s, latest: %s, state: %s", conv.InstalledVersion, conv.LatestVersion, conv.State)
 				wrapper.update.CurrentVersion.Set(string(conv.InstalledVersion))
 				wrapper.update.UpdateVersion.Set(string(conv.LatestVersion))
-				// wrapper.update.State.Set(conv.State)
+				switch conv.State {
+				case "available":
+				case "updating":
+					wrapper.update.Updating.Set(true)
+				case "idle":
+					wrapper.update.Updating.Set(false)
+				default:
+					wrapper.log.Errorf("unsupported state %q", conv.State)
+					wrapper.update.Updating.Set(false)
+				}
+				if conv.Progress != nil {
+					wrapper.update.Progress.Set(int64(*conv.Progress))
+				} else {
+					wrapper.update.Progress.Set(0)
+				}
+				if conv.Remaining != nil {
+					wrapper.update.Remaining.Set(time.Duration(*conv.Remaining) * time.Second)
+				} else {
+					wrapper.update.Remaining.Set(0)
+				}
 			}
-
 		}
 	}
 	return handled
+}
+
+func (wrapper *WrapperUpdate) handleAction(request *clientsapi.ActionRequest, feedback func(*clientsapi.ActionResponse)) error {
+	wrapper.log.Debugf("handling request: %s", request)
+	if wrapper.requestUpdate != nil {
+		for _, val := range request.Values {
+			switch val.Id {
+			case wrapper.update.StartUpdate.ID():
+				// Updates work differently to standard device requests.
+				wrapper.log.Debugf("handling request: update")
+				wrapper.requestUpdate()
+
+			default:
+				wrapper.log.Errorf("unsupported request value: %s", val)
+				return fmt.Errorf("unsupported request value: %s", val)
+			}
+		}
+	}
+	return nil
 }

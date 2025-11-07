@@ -65,6 +65,13 @@ func (dev *ZigbeeDeviceImpl) sendZigbeeRequest(payload []byte) {
 	dev.requests(ZigbeeRequest{Topic: dev.friendlyName + "/set", Payload: payload})
 }
 
+func (dev *ZigbeeDeviceImpl) sendUpdateRequest() {
+	dev.requests(ZigbeeRequest{
+		Topic:   "bridge/request/device/ota_update/update",
+		Payload: fmt.Appendf(nil, `{"id": "%s"}`, dev.friendlyName),
+	})
+}
+
 func (dev *ZigbeeDeviceImpl) UpdateInfo(info DeviceInfo) {
 	dev.friendlyName = info.FriendlyName
 	dev.info.Name.Set(info.FriendlyName)
@@ -79,7 +86,7 @@ func (dev *ZigbeeDeviceImpl) UpdateInfo(info DeviceInfo) {
 	var handled []HandledExpose
 
 	if dev.update == nil && SupportsUpdate(info) {
-		dev.update = NewWrapperUpdate(dev.log, dev.dev, dev.sendZigbeeRequest)
+		dev.update = NewWrapperUpdate(dev.log, dev.dev, dev.sendUpdateRequest)
 	}
 	if dev.update != nil {
 		handled = append(handled, dev.update.UpdateInfo(info)...)
