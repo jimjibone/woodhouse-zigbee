@@ -32,6 +32,8 @@ type ZigbeeDeviceImpl struct {
 	environment *WrapperEnvironment
 	contact     *WrapperContact
 	cover       *WrapperCover
+	motion      *WrapperMotion
+	presence    *WrapperPresence
 	generic     *WrapperGeneric
 }
 
@@ -139,6 +141,20 @@ func (dev *ZigbeeDeviceImpl) UpdateInfo(info DeviceInfo) {
 	}
 	if dev.cover != nil {
 		handled = append(handled, dev.cover.UpdateInfo(info)...)
+	}
+
+	if dev.motion == nil && SupportsMotion(info) {
+		dev.motion = NewWrapperMotion(dev.log, dev.dev)
+	}
+	if dev.motion != nil {
+		handled = append(handled, dev.motion.UpdateInfo(info)...)
+	}
+
+	if dev.presence == nil && SupportsPresence(info) {
+		dev.presence = NewWrapperPresence(dev.log, dev.dev)
+	}
+	if dev.presence != nil {
+		handled = append(handled, dev.presence.UpdateInfo(info)...)
 	}
 
 	// Add unhandled properties to the generic service.

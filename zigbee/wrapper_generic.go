@@ -14,7 +14,13 @@ type WrapperGeneric struct {
 	log     *log.Context
 	generic *services.Generic
 
+	binaries map[string]*genericBinary
 	numerics map[string]*genericNumeric
+}
+
+type genericBinary struct {
+	converter *BinaryConverter
+	attribute *attributes.Bool
 }
 
 type genericNumeric struct {
@@ -27,6 +33,7 @@ func NewWrapperGeneric(log *log.Context, dev *devices.Device) *WrapperGeneric {
 		log:     log,
 		generic: services.NewGeneric("generic"),
 
+		binaries: make(map[string]*genericBinary),
 		numerics: make(map[string]*genericNumeric),
 	}
 	dev.AddService(wrapper.generic)
@@ -70,19 +77,26 @@ func (wrapper *WrapperGeneric) UpdateInfo(info DeviceInfo, ignore []HandledExpos
 				}
 			}
 
-			// 	case "binary":
-			// 		switch {
-			// 		case expose.Property == "contact":
-			// 			handled = append(handled, HandledExpose{expose.Type, expose.Property})
-			// 			wrapper.contactProperty = expose.Property
-			// 			wrapper.contactConverter, err = UnmarshalBinary(expose.Data)
-			// 			if err != nil {
-			// 				wrapper.log.Errorf("failed to unmarshal contact value: %s -- %s", err, expose)
-			// 			} else {
-			// 				wrapper.log.Debugf("contact value expose %q: %s", wrapper.contactProperty, wrapper.contactConverter)
-			// 			}
-			// 			wrapper.contact.Closed.Set(false)
-			// 		}
+		case "binary":
+			converter, err := UnmarshalBinary(expose.Data)
+			if err != nil {
+				wrapper.log.Errorf("failed to unmarshal generic binary value: %s -- %s", err, expose)
+			} else {
+				handled = append(handled, HandledExpose{expose.Type, expose.Property})
+				wrapper.log.Debugf("generic binary expose %q: %s", expose.Property, converter)
+
+				attribute := attributes.NewBool(expose.Property, clientsapi.Permissions_PERM_READONLY, attributes.Optional)
+				wrapper.generic.AddAttribute(attribute)
+
+				if !attribute.IsSet() {
+					attribute.Set(false)
+				}
+
+				wrapper.binaries[expose.Property] = &genericBinary{
+					converter: converter,
+					attribute: attribute,
+				}
+			}
 		}
 	}
 	return handled
@@ -99,19 +113,16 @@ func (wrapper *WrapperGeneric) UpdateState(state DeviceState, ignore []string) (
 				wrapper.log.Debugf("generic value %q: %f", key, val)
 				numeric.attribute.Set(val)
 			}
+		} else if binary, found := wrapper.binaries[key]; found {
+			handled = append(handled, key)
+			val, err := binary.converter.UnmarshalValue(value)
+			if err != nil {
+				wrapper.log.Errorf("failed to unmarshal generic %q value %q: %s", key, value, err)
+			} else {
+				wrapper.log.Debugf("generic value %q: %f", key, val)
+				binary.attribute.Set(val)
+			}
 		}
-
-		// 	switch key {
-		// 	case wrapper.contactProperty:
-		// 		handled = append(handled, key)
-		// 		val, err := wrapper.contactConverter.UnmarshalValue(value)
-		// 		if err != nil {
-		// 			wrapper.log.Errorf("failed to unmarshal contact value %q: %s", value, err)
-		// 		} else {
-		// 			wrapper.log.Debugf("contact value %q: %t", wrapper.contactProperty, val)
-		// 			wrapper.contact.Closed.Set(val)
-		// 		}
-		// 	}
 	}
 	return handled
 }
