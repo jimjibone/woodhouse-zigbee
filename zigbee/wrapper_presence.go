@@ -49,29 +49,32 @@ func (wrapper *WrapperPresence) UpdateInfo(info DeviceInfo) (handled []HandledEx
 	var err error
 	for _, expose := range info.Definition.Exposes {
 		switch expose.Type {
-		case "binary":
+		case "enum":
 			switch {
 			case expose.Property == "movement":
 				handled = append(handled, HandledExpose{expose.Type, expose.Property})
 				wrapper.motionProperty = expose.Property
 				wrapper.motionConverter, err = UnmarshalEnum(expose.Data)
 				if err != nil {
-					wrapper.log.Errorf("failed to unmarshal motion value: %s -- %s", err, expose)
+					wrapper.log.Errorf("presence: failed to unmarshal motion value: %s -- %s", err, expose)
 				} else {
-					wrapper.log.Debugf("motion value expose %q: %s", wrapper.motionProperty, wrapper.motionConverter)
+					wrapper.log.Infof("presence: motion value expose %q: %s", wrapper.motionProperty, wrapper.motionConverter)
 				}
 				if !wrapper.srv.Motion.IsSet() {
 					wrapper.srv.Motion.Set(false)
 				}
+			}
 
+		case "binary":
+			switch {
 			case expose.Property == "presence":
 				handled = append(handled, HandledExpose{expose.Type, expose.Property})
 				wrapper.presenceProperty = expose.Property
 				wrapper.presenceConverter, err = UnmarshalBinary(expose.Data)
 				if err != nil {
-					wrapper.log.Errorf("failed to unmarshal presence value: %s -- %s", err, expose)
+					wrapper.log.Errorf("presence: failed to unmarshal presence value: %s -- %s", err, expose)
 				} else {
-					wrapper.log.Debugf("presence value expose %q: %s", wrapper.presenceProperty, wrapper.presenceConverter)
+					wrapper.log.Infof("presence: presence value expose %q: %s", wrapper.presenceProperty, wrapper.presenceConverter)
 				}
 				if !wrapper.srv.Presence.IsSet() {
 					wrapper.srv.Presence.Set(false)
@@ -85,9 +88,9 @@ func (wrapper *WrapperPresence) UpdateInfo(info DeviceInfo) (handled []HandledEx
 				wrapper.distanceProperty = expose.Property
 				wrapper.distanceConverter, err = UnmarshalNumeric(expose.Data)
 				if err != nil {
-					wrapper.log.Errorf("failed to unmarshal distance value: %s -- %s", err, expose)
+					wrapper.log.Errorf("presence: failed to unmarshal distance value: %s -- %s", err, expose)
 				} else {
-					wrapper.log.Debugf("distance value expose %q: %s", wrapper.distanceProperty, wrapper.distanceConverter)
+					wrapper.log.Infof("presence: distance value expose %q: %s", wrapper.distanceProperty, wrapper.distanceConverter)
 				}
 				if !wrapper.srv.Distance.IsSet() {
 					wrapper.srv.Distance.Set(0.0)
@@ -107,7 +110,7 @@ func (wrapper *WrapperPresence) UpdateState(state DeviceState) (handled []string
 			if err != nil {
 				wrapper.log.Errorf("failed to unmarshal motion value %q: %s", value, err)
 			} else {
-				wrapper.log.Debugf("motion value %q: %q", wrapper.motionProperty, val)
+				wrapper.log.Debugf("presence: motion value %q: %q", wrapper.motionProperty, val)
 				if val == "movement" {
 					wrapper.srv.Motion.Set(true)
 				} else {
@@ -121,7 +124,7 @@ func (wrapper *WrapperPresence) UpdateState(state DeviceState) (handled []string
 			if err != nil {
 				wrapper.log.Errorf("failed to unmarshal presence value %q: %s", value, err)
 			} else {
-				wrapper.log.Debugf("presence value %q: %t", wrapper.presenceProperty, val)
+				wrapper.log.Debugf("presence: presence value %q: %t", wrapper.presenceProperty, val)
 				wrapper.srv.Presence.Set(val)
 			}
 
@@ -131,7 +134,7 @@ func (wrapper *WrapperPresence) UpdateState(state DeviceState) (handled []string
 			if err != nil {
 				wrapper.log.Errorf("failed to unmarshal distance value %q: %s", value, err)
 			} else {
-				wrapper.log.Debugf("distance value %q: %f", wrapper.distanceProperty, val)
+				wrapper.log.Debugf("presence: distance value %q: %f", wrapper.distanceProperty, val)
 				wrapper.srv.Distance.Set(val)
 			}
 		}
