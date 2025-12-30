@@ -159,7 +159,7 @@ func (dev *ZigbeeDeviceImpl) UpdateInfo(info DeviceInfo) {
 
 	// Add unhandled properties to the generic service.
 	if dev.generic == nil && len(handled) < len(info.Definition.Exposes) {
-		dev.generic = NewWrapperGeneric(dev.log, dev.dev)
+		dev.generic = NewWrapperGeneric(dev.log, dev.dev, dev.sendZigbeeRequest)
 	}
 	if dev.generic != nil {
 		handled = append(handled, dev.generic.UpdateInfo(info, handled)...)
