@@ -217,25 +217,27 @@ func (zb *ZigbeeWebsockets) handleDeviceInfos(payload []byte) {
 }
 
 func (zb *ZigbeeWebsockets) handleDeviceAvailability(friendlyName string, payload []byte) {
-	if len(payload) == 0 {
-		return
-	}
-	if bytes.Equal(payload, []byte(`null`)) {
+	availability := struct {
+		State string `json:"state"`
+	}{}
+	err := json.Unmarshal(payload, &availability)
+	if err != nil {
+		zb.log.Errorf("failed to unmarshal device availability: name: %q, payload: %s, err: %s", friendlyName, payload, err)
 		return
 	}
 
 	// Update device.
 	if dev := zb.findDeviceByName(friendlyName); dev != nil {
-		switch string(payload) {
-		case `"online"`:
+		switch availability.State {
+		case "online":
 			dev.UpdateOnline(true)
-		case `"offline"`:
+		case "offline":
 			dev.UpdateOnline(false)
 		default:
-			zb.log.Errorf("received unexpected device availability for unknown device: %q %q", friendlyName, payload)
+			zb.log.Errorf("received unexpected device availability for unknown device: %q %q", friendlyName, availability.State)
 		}
 	} else {
-		zb.log.Errorf("received device availability for unknown device: %q %q", friendlyName, payload)
+		zb.log.Errorf("received device availability for unknown device: %q %q", friendlyName, availability.State)
 	}
 }
 
