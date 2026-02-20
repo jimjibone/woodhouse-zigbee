@@ -13,8 +13,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/jimjibone/woodhouse-4/cmd/woodhouse-zigbee/zigbee"
 	"github.com/jimjibone/woodhouse-4/log"
-	"github.com/jimjibone/woodhouse-4/shared/stores"
-	"github.com/jimjibone/woodhouse-4/wh/v1"
 )
 
 const (
@@ -22,22 +20,20 @@ const (
 	maxBackoff = 30 * time.Second
 )
 
-type ZigbeeWebsockets struct {
+type WsConn struct {
 	log             *log.Context
-	FS              stores.Store
 	WebAddr         string
 	WsAddr          string
 	RootTopic       string
 	lastBackoff     time.Time
 	lastRestart     time.Time
 	backoffDuration time.Duration
-	client          *wh.Client
 	connMu          sync.RWMutex
 	conn            *websocket.Conn
-	devices         map[string]zigbee.ZigbeeDevice // devices with their IEEE address as the key.
+	// devices         map[string]zigbee.ZigbeeDevice // devices with their IEEE address as the key.
 }
 
-func (zb *ZigbeeWebsockets) Run(ctx context.Context, client *wh.Client) error {
+func (zb *WsConn) Run(ctx context.Context) error {
 	if zb.log == nil {
 		zb.log = log.NewContext(log.DefaultLogger, "zigbee", log.DebugLevel)
 	}
@@ -45,8 +41,8 @@ func (zb *ZigbeeWebsockets) Run(ctx context.Context, client *wh.Client) error {
 	log.Infof("started")
 	defer log.Infof("finished")
 
-	zb.client = client
-	zb.devices = make(map[string]zigbee.ZigbeeDevice)
+	// zb.client = client
+	// zb.devices = make(map[string]zigbee.ZigbeeDevice)
 
 	for {
 		// Try to connect.
@@ -85,7 +81,7 @@ func (zb *ZigbeeWebsockets) Run(ctx context.Context, client *wh.Client) error {
 	}
 }
 
-func (zb *ZigbeeWebsockets) connect() *websocket.Conn {
+func (zb *WsConn) connect() *websocket.Conn {
 	conn, _, err := websocket.DefaultDialer.Dial(fmt.Sprintf("ws://%s/api", zb.WsAddr), nil)
 	if err != nil {
 		zb.log.Errorln("dial:", err)
@@ -94,7 +90,7 @@ func (zb *ZigbeeWebsockets) connect() *websocket.Conn {
 	return conn
 }
 
-func (zb *ZigbeeWebsockets) recv(ctx context.Context, conn *websocket.Conn) {
+func (zb *WsConn) recv(ctx context.Context, conn *websocket.Conn) {
 	saveJson := func(filename string, data []byte) {
 		var tmp interface{}
 		err := json.Unmarshal(data, &tmp)
@@ -142,7 +138,7 @@ func (zb *ZigbeeWebsockets) recv(ctx context.Context, conn *websocket.Conn) {
 
 		case "bridge/devices":
 			saveJson("zigbee-bridge-devices.json", frame.Payload)
-			zb.handleDeviceInfos(frame.Payload)
+			// zb.handleDeviceInfos(frame.Payload)
 
 		case "bridge/config":
 			saveJson("zigbee-bridge-config.json", frame.Payload)
@@ -155,13 +151,13 @@ func (zb *ZigbeeWebsockets) recv(ctx context.Context, conn *websocket.Conn) {
 			if strings.HasSuffix(frame.Topic, "/availability") {
 				zb.handleDeviceAvailability(strings.TrimSuffix(frame.Topic, "/availability"), frame.Payload)
 			} else {
-				zb.handleDeviceState(frame.Topic, frame.Payload)
+				// zb.handleDeviceState(frame.Topic, frame.Payload)
 			}
 		}
 	}
 }
 
-func (zb *ZigbeeWebsockets) backoff(ctx context.Context) {
+func (zb *WsConn) backoff(ctx context.Context) {
 	// Reset the backoff duration if the backoff has not been used for a
 	// suitable amount of time.
 	dt := time.Since(zb.lastRestart)
@@ -185,12 +181,8 @@ func (zb *ZigbeeWebsockets) backoff(ctx context.Context) {
 	zb.lastRestart = time.Now()
 }
 
-func (zb *ZigbeeWebsockets) handleDeviceInfos(payload []byte) {
-	// zb.log.Printf("device infos: %s", payload)
-
-	if zb.FS != nil {
-		zb.FS.Set("device_infos.json", payload)
-	}
+func (zb *WsConn) handleDeviceInfos(payload []byte) {
+	zb.log.Infof("device infos RAW: %s", payload)
 
 	var devices []zigbee.DeviceInfo
 	if err := json.Unmarshal(payload, &devices); err != nil {
@@ -198,25 +190,34 @@ func (zb *ZigbeeWebsockets) handleDeviceInfos(payload []byte) {
 		return
 	}
 
-	zb.log.Debugf("device infos: %d", len(devices))
+	zb.log.Infof("device infos: %d", len(devices))
 	for i, dev := range devices {
 		fmt.Printf("  %d: %+v\n", i, dev)
 	}
 
 	// Update or create devices.
-	for _, info := range devices {
-		if dev, found := zb.devices[info.IEEEAddress]; found {
-			dev.UpdateInfo(info)
-		} else {
-			dev := zigbee.GenerateDevice(info, zb.client, zb.WebAddr, zb.requestHandler)
-			if dev != nil {
-				zb.devices[info.IEEEAddress] = dev
-			}
-		}
-	}
+	// for _, info := range devices {
+	// 	if dev, found := zb.devices[info.IEEEAddress]; found {
+	// 		dev.UpdateInfo(info)
+	// 	} else {
+	// 		dev := zigbee.GenerateDevice(info, zb.client, zb.WebAddr, zb.requestHandler)
+	// 		if dev != nil {
+	// 			zb.devices[info.IEEEAddress] = dev
+	// 		}
+	// 	}
+	// }
 }
 
-func (zb *ZigbeeWebsockets) handleDeviceAvailability(friendlyName string, payload []byte) {
+func (zb *WsConn) handleDeviceAvailability(friendlyName string, payload []byte) {
+	zb.log.Infof("device availability name: %s, raw: %s", friendlyName, payload)
+
+	// if len(payload) == 0 {
+	// 	return
+	// }
+	// if bytes.Equal(payload, []byte(`null`)) {
+	// 	return
+	// }
+
 	availability := struct {
 		State string `json:"state"`
 	}{}
@@ -226,23 +227,25 @@ func (zb *ZigbeeWebsockets) handleDeviceAvailability(friendlyName string, payloa
 		return
 	}
 
+	zb.log.Infof("device availability name: %s, availability: %s", friendlyName, availability.State)
+
 	// Update device.
-	if dev := zb.findDeviceByName(friendlyName); dev != nil {
-		switch availability.State {
-		case "online":
-			dev.UpdateOnline(true)
-		case "offline":
-			dev.UpdateOnline(false)
-		default:
-			zb.log.Errorf("received unexpected device availability for unknown device: %q %q", friendlyName, availability.State)
-		}
-	} else {
-		zb.log.Errorf("received device availability for unknown device: %q %q", friendlyName, availability.State)
-	}
+	// if dev := zb.findDeviceByName(friendlyName); dev != nil {
+	// 	switch string(payload) {
+	// 	case `"online"`:
+	// 		dev.UpdateOnline(true)
+	// 	case `"offline"`:
+	// 		dev.UpdateOnline(false)
+	// 	default:
+	// 		zb.log.Errorf("received unexpected device availability for unknown device: %q %q", friendlyName, payload)
+	// 	}
+	// } else {
+	// 	zb.log.Errorf("received device availability for unknown device: %q %q", friendlyName, payload)
+	// }
 }
 
-func (zb *ZigbeeWebsockets) handleDeviceState(friendlyName string, payload []byte) {
-	// zb.log.Printf("device state: %s: %s", friendlyName, payload)
+func (zb *WsConn) handleDeviceState(friendlyName string, payload []byte) {
+	zb.log.Infof("device state name: %s, raw: %s", friendlyName, payload)
 	if len(payload) == 0 {
 		return
 	}
@@ -258,45 +261,45 @@ func (zb *ZigbeeWebsockets) handleDeviceState(friendlyName string, payload []byt
 	}
 
 	// zb.log.Printf("device state: %s\n%s", friendlyName, payload)
-	zb.log.Debugf("device state: %s\n%s", friendlyName, state.String())
+	zb.log.Infof("device state: %s\n%s", friendlyName, state.String())
 
 	// Update and possibly add devices.
-	if dev := zb.findDeviceByName(friendlyName); dev != nil {
-		dev.UpdateState(state)
-	}
+	// if dev := zb.findDeviceByName(friendlyName); dev != nil {
+	// 	dev.UpdateState(state)
+	// }
 	//else {
 	//	zb.log.Errorf("received device state for unknown device: %s\n%s", friendlyName, state.String())
 	//}
 	//}
 }
 
-func (zb *ZigbeeWebsockets) findDeviceByName(name string) zigbee.ZigbeeDevice {
-	if name != "" {
-		for _, dev := range zb.devices {
-			if dev.Name() == name {
-				return dev
-			}
-		}
-	}
-	return nil
-}
+// func (zb *WsConn) findDeviceByName(name string) zigbee.ZigbeeDevice {
+// 	if name != "" {
+// 		for _, dev := range zb.devices {
+// 			if dev.Name() == name {
+// 				return dev
+// 			}
+// 		}
+// 	}
+// 	return nil
+// }
 
-func (zb *ZigbeeWebsockets) requestHandler(request zigbee.ZigbeeRequest) {
-	zb.connMu.Lock()
-	defer zb.connMu.Unlock()
-	if zb.conn == nil {
-		zb.log.Warnf("not connected to z2m for request %q", request.Topic)
-		return
-	}
-	zb.log.Debugf("sending %q: %s", request.Topic, request.Payload)
-	err := zb.conn.WriteJSON(struct {
-		Topic   string          `json:"topic"`
-		Payload json.RawMessage `json:"payload"`
-	}{
-		Topic:   request.Topic,
-		Payload: request.Payload,
-	})
-	if err != nil {
-		zb.log.Errorf("failed to send request: %s", err)
-	}
-}
+// func (zb *WsConn) requestHandler(request zigbee.ZigbeeRequest) {
+// 	zb.connMu.Lock()
+// 	defer zb.connMu.Unlock()
+// 	if zb.conn == nil {
+// 		zb.log.Warnf("not connected to z2m for request %q", request.Topic)
+// 		return
+// 	}
+// 	zb.log.Debugf("sending %q: %s", request.Topic, request.Payload)
+// 	err := zb.conn.WriteJSON(struct {
+// 		Topic   string          `json:"topic"`
+// 		Payload json.RawMessage `json:"payload"`
+// 	}{
+// 		Topic:   request.Topic,
+// 		Payload: request.Payload,
+// 	})
+// 	if err != nil {
+// 		zb.log.Errorf("failed to send request: %s", err)
+// 	}
+// }

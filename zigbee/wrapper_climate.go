@@ -26,6 +26,9 @@ type WrapperClimate struct {
 
 	piHeatingDemandProperty  string
 	piHeatingDemandConverter *NumericConverter
+
+	runningStateProperty  string
+	runningStateConverter *EnumConverter
 }
 
 func SupportsClimate(info DeviceInfo) bool {
@@ -121,6 +124,18 @@ func (wrapper *WrapperClimate) UpdateInfo(info DeviceInfo) (handled []HandledExp
 							}
 						}
 
+					case "running_state":
+						wrapper.runningStateProperty = featureExpose.Property
+						wrapper.runningStateConverter, err = UnmarshalEnum(featureExpose.Data)
+						if err != nil {
+							wrapper.log.Errorf("failed to unmarshal running_state: %s -- %s", err, expose)
+						} else {
+							wrapper.log.Debugf("running_state expose %q: %s", wrapper.runningStateProperty, wrapper.runningStateConverter)
+						}
+						if !wrapper.climate.HeatingDemand.IsSet() {
+							wrapper.climate.HeatingDemand.Set(false)
+						}
+
 					default:
 						wrapper.log.Warnf("unsupported climate expose %q: %s", featureExpose.Name, featureExpose)
 					}
@@ -163,6 +178,20 @@ func (wrapper *WrapperClimate) UpdateState(state DeviceState) (handled []string)
 				piHeatingDemand := int64(val)
 				wrapper.log.Debugf("pi heating demand value %q: %f -> %d", wrapper.piHeatingDemandProperty, val, piHeatingDemand)
 				wrapper.climate.PIHeatingDemand.Set(piHeatingDemand)
+			}
+
+		case wrapper.runningStateProperty:
+			handled = append(handled, key)
+			val, err := wrapper.runningStateConverter.UnmarshalValue(value)
+			if err != nil {
+				wrapper.log.Errorf("failed to unmarshal running_state value %q: %s", value, err)
+			} else {
+				heat := false
+				if val == "heat" {
+					heat = true
+				}
+				wrapper.log.Debugf("running_state value %q: %s -> %d", wrapper.runningStateProperty, val)
+				wrapper.climate.HeatingDemand.Set(heat)
 			}
 		}
 	}
