@@ -43,7 +43,7 @@ func NewZigbeeDeviceImpl(info DeviceInfo, client *wh.Client, baseUrl string, req
 		client:   client,
 		baseUrl:  baseUrl,
 		requests: requests,
-		dev:      devices.NewDevice(info.IEEEAddress, clientsapi.Device_GENERIC),
+		dev:      devices.NewDevice(info.IEEEAddress, clientsapi.Device_DEVICE),
 		info:     services.NewInfo(),
 		online:   services.NewOnline(),
 	}
