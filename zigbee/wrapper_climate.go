@@ -29,6 +29,12 @@ type WrapperClimate struct {
 
 	runningStateProperty  string
 	runningStateConverter *EnumConverter
+
+	valveOpeningDegreeProperty  string
+	valveOpeningDegreeConverter *NumericConverter
+
+	valveClosingDegreeProperty  string
+	valveClosingDegreeConverter *NumericConverter
 }
 
 func SupportsClimate(info DeviceInfo) bool {
@@ -54,6 +60,7 @@ func NewWrapperClimate(log *log.Context, dev *devices.Device, requests func(payl
 }
 
 func (wrapper *WrapperClimate) UpdateInfo(info DeviceInfo) (handled []HandledExpose) {
+	var err error
 	for _, expose := range info.Definition.Exposes {
 		switch expose.Type {
 		case "climate":
@@ -71,16 +78,16 @@ func (wrapper *WrapperClimate) UpdateInfo(info DeviceInfo) (handled []HandledExp
 							wrapper.log.Errorf("failed to unmarshal heating setpoint: %s -- %s", err, expose)
 						} else {
 							wrapper.log.Debugf("heating setpoint expose %q: %s", wrapper.heatingSetpointProperty, wrapper.heatingSetpointConverter)
-						}
-						if wrapper.heatingSetpointConverter.ValueMin != nil && wrapper.heatingSetpointConverter.ValueMax != nil && wrapper.heatingSetpointConverter.ValueStep != nil {
-							wrapper.climate.HeatingSetpoint.SetLimits(*wrapper.heatingSetpointConverter.ValueMin, *wrapper.heatingSetpointConverter.ValueMax, *wrapper.heatingSetpointConverter.ValueStep)
-							if !wrapper.climate.HeatingSetpoint.IsSet() {
-								wrapper.climate.HeatingSetpoint.Set(*wrapper.heatingSetpointConverter.ValueMin)
-							}
-						} else {
-							if !wrapper.climate.HeatingSetpoint.IsSet() {
-								min, _, _ := wrapper.climate.HeatingSetpoint.GetLimits()
-								wrapper.climate.HeatingSetpoint.Set(min)
+							if wrapper.heatingSetpointConverter.ValueMin != nil && wrapper.heatingSetpointConverter.ValueMax != nil && wrapper.heatingSetpointConverter.ValueStep != nil {
+								wrapper.climate.HeatingSetpoint.SetLimits(*wrapper.heatingSetpointConverter.ValueMin, *wrapper.heatingSetpointConverter.ValueMax, *wrapper.heatingSetpointConverter.ValueStep)
+								if !wrapper.climate.HeatingSetpoint.IsSet() {
+									wrapper.climate.HeatingSetpoint.Set(*wrapper.heatingSetpointConverter.ValueMin)
+								}
+							} else {
+								if !wrapper.climate.HeatingSetpoint.IsSet() {
+									min, _, _ := wrapper.climate.HeatingSetpoint.GetLimits()
+									wrapper.climate.HeatingSetpoint.Set(min)
+								}
 							}
 						}
 
@@ -91,16 +98,16 @@ func (wrapper *WrapperClimate) UpdateInfo(info DeviceInfo) (handled []HandledExp
 							wrapper.log.Errorf("failed to unmarshal local temperature: %s -- %s", err, expose)
 						} else {
 							wrapper.log.Debugf("local temperature expose %q: %s", wrapper.localTemperatureProperty, wrapper.localTemperatureConverter)
-						}
-						if wrapper.localTemperatureConverter.ValueMin != nil && wrapper.localTemperatureConverter.ValueMax != nil && wrapper.localTemperatureConverter.ValueStep != nil {
-							wrapper.climate.LocalTemperature.SetLimits(*wrapper.localTemperatureConverter.ValueMin, *wrapper.localTemperatureConverter.ValueMax, *wrapper.localTemperatureConverter.ValueStep)
-							if !wrapper.climate.LocalTemperature.IsSet() {
-								wrapper.climate.LocalTemperature.Set(*wrapper.localTemperatureConverter.ValueMin)
-							}
-						} else {
-							if !wrapper.climate.LocalTemperature.IsSet() {
-								min, _, _ := wrapper.climate.LocalTemperature.GetLimits()
-								wrapper.climate.LocalTemperature.Set(min)
+							if wrapper.localTemperatureConverter.ValueMin != nil && wrapper.localTemperatureConverter.ValueMax != nil && wrapper.localTemperatureConverter.ValueStep != nil {
+								wrapper.climate.LocalTemperature.SetLimits(*wrapper.localTemperatureConverter.ValueMin, *wrapper.localTemperatureConverter.ValueMax, *wrapper.localTemperatureConverter.ValueStep)
+								if !wrapper.climate.LocalTemperature.IsSet() {
+									wrapper.climate.LocalTemperature.Set(*wrapper.localTemperatureConverter.ValueMin)
+								}
+							} else {
+								if !wrapper.climate.LocalTemperature.IsSet() {
+									min, _, _ := wrapper.climate.LocalTemperature.GetLimits()
+									wrapper.climate.LocalTemperature.Set(min)
+								}
 							}
 						}
 
@@ -111,16 +118,8 @@ func (wrapper *WrapperClimate) UpdateInfo(info DeviceInfo) (handled []HandledExp
 							wrapper.log.Errorf("failed to unmarshal pi heating demand: %s -- %s", err, expose)
 						} else {
 							wrapper.log.Debugf("pi heating demand expose %q: %s", wrapper.piHeatingDemandProperty, wrapper.piHeatingDemandConverter)
-						}
-						if wrapper.piHeatingDemandConverter.ValueMin != nil && wrapper.piHeatingDemandConverter.ValueMax != nil && wrapper.piHeatingDemandConverter.ValueStep != nil {
-							wrapper.climate.PIHeatingDemand.SetLimits(int64(*wrapper.piHeatingDemandConverter.ValueMin), int64(*wrapper.piHeatingDemandConverter.ValueMax), uint64(*wrapper.piHeatingDemandConverter.ValueStep))
 							if !wrapper.climate.PIHeatingDemand.IsSet() {
-								wrapper.climate.PIHeatingDemand.Set(int64(*wrapper.piHeatingDemandConverter.ValueMin))
-							}
-						} else {
-							if !wrapper.climate.PIHeatingDemand.IsSet() {
-								min, _, _ := wrapper.climate.PIHeatingDemand.GetLimits()
-								wrapper.climate.PIHeatingDemand.Set(min)
+								wrapper.climate.PIHeatingDemand.Set(0)
 							}
 						}
 
@@ -131,9 +130,9 @@ func (wrapper *WrapperClimate) UpdateInfo(info DeviceInfo) (handled []HandledExp
 							wrapper.log.Errorf("failed to unmarshal running_state: %s -- %s", err, expose)
 						} else {
 							wrapper.log.Debugf("running_state expose %q: %s", wrapper.runningStateProperty, wrapper.runningStateConverter)
-						}
-						if !wrapper.climate.HeatingDemand.IsSet() {
-							wrapper.climate.HeatingDemand.Set(false)
+							if !wrapper.climate.HeatingDemand.IsSet() {
+								wrapper.climate.HeatingDemand.Set(false)
+							}
 						}
 
 					default:
@@ -141,13 +140,47 @@ func (wrapper *WrapperClimate) UpdateInfo(info DeviceInfo) (handled []HandledExp
 					}
 				}
 			}
+
+		case "numeric":
+			// There are also non-climate properties that are of interest to us.
+			switch expose.Property {
+			case "valve_opening_degree":
+				handled = append(handled, HandledExpose{expose.Type, expose.Property})
+				wrapper.valveOpeningDegreeProperty = expose.Property
+				wrapper.valveOpeningDegreeConverter, err = UnmarshalNumeric(expose.Data)
+				if err != nil {
+					wrapper.log.Errorf("failed to unmarshal valve_opening_degree: %s -- %s", err, expose)
+				} else {
+					wrapper.log.Debugf("valve_opening_degree expose %q: %s", wrapper.valveOpeningDegreeProperty, wrapper.valveOpeningDegreeConverter)
+					if !wrapper.climate.ValvePosition.IsSet() {
+						wrapper.climate.ValvePosition.Set(0)
+					}
+				}
+
+			case "valve_closing_degree":
+				handled = append(handled, HandledExpose{expose.Type, expose.Property})
+				wrapper.valveClosingDegreeProperty = expose.Property
+				wrapper.valveClosingDegreeConverter, err = UnmarshalNumeric(expose.Data)
+				if err != nil {
+					wrapper.log.Errorf("failed to unmarshal valve_closing_degree: %s -- %s", err, expose)
+				} else {
+					wrapper.log.Debugf("valve_closing_degree expose %q: %s", wrapper.valveClosingDegreeProperty, wrapper.valveClosingDegreeConverter)
+					if !wrapper.climate.ValvePosition.IsSet() {
+						wrapper.climate.ValvePosition.Set(0)
+					}
+				}
+			}
 		}
 	}
+
 	return handled
 }
 
 func (wrapper *WrapperClimate) UpdateState(state DeviceState) (handled []string) {
 	for key, value := range state.Values {
+		if key == "" {
+			continue
+		}
 		switch key {
 		case wrapper.heatingSetpointProperty:
 			handled = append(handled, key)
@@ -193,6 +226,32 @@ func (wrapper *WrapperClimate) UpdateState(state DeviceState) (handled []string)
 				wrapper.log.Debugf("running_state value %q: %s -> %d", wrapper.runningStateProperty, val)
 				wrapper.climate.HeatingDemand.Set(heat)
 			}
+
+		case wrapper.valveOpeningDegreeProperty:
+			handled = append(handled, key)
+			val, err := wrapper.valveOpeningDegreeConverter.UnmarshalValue(value)
+			if err != nil {
+				wrapper.log.Errorf("failed to unmarshal valve_opening_degree value %q: %s", value, err)
+			} else {
+				valveOpeningDegree := int64(val)
+				wrapper.log.Debugf("valve_opening_degree value %q: %f -> %d", wrapper.valveOpeningDegreeProperty, val, valveOpeningDegree)
+				wrapper.climate.ValvePosition.Set(valveOpeningDegree)
+			}
+
+		case wrapper.valveClosingDegreeProperty:
+			handled = append(handled, key)
+			if wrapper.valveOpeningDegreeConverter == nil {
+				// As a fallback, if we don't have a converter for the opening degree, we can use the closing degree to
+				// calculate it (assuming it's 100% - opening degree).
+				val, err := wrapper.valveClosingDegreeConverter.UnmarshalValue(value)
+				if err != nil {
+					wrapper.log.Errorf("failed to unmarshal valve_closing_degree value %q: %s", value, err)
+				} else {
+					valveOpeningDegree := 100 - int64(val)
+					wrapper.log.Debugf("valve_closing_degree value %q: %f -> %d opening", wrapper.valveClosingDegreeProperty, val, valveOpeningDegree)
+					wrapper.climate.ValvePosition.Set(valveOpeningDegree)
+				}
+			}
 		}
 	}
 	return handled
@@ -214,6 +273,26 @@ func (wrapper *WrapperClimate) handleAction(request *clientsapi.ActionRequest, f
 				} else {
 					wrapper.log.Errorf("no converter for %s", val)
 					return fmt.Errorf("no converter for %s", val)
+				}
+
+			case wrapper.climate.ValvePosition.ID():
+				if wrapper.valveOpeningDegreeConverter != nil {
+					valjson, err := wrapper.valveOpeningDegreeConverter.MarshalValue(float64(val.GetInt().GetValue()))
+					if err != nil {
+						return fmt.Errorf("marshal %s: %s", val, err)
+					}
+					reqjson[wrapper.valveOpeningDegreeProperty] = valjson
+				} else {
+					wrapper.log.Errorf("no converter for %s", val)
+					return fmt.Errorf("no converter for %s", val)
+				}
+				if wrapper.valveClosingDegreeConverter != nil {
+					// Uses the opposite of the opening degree (valve position).
+					valjson, err := wrapper.valveClosingDegreeConverter.MarshalValue(float64(100 - val.GetInt().GetValue()))
+					if err != nil {
+						return fmt.Errorf("marshal %s: %s", val, err)
+					}
+					reqjson[wrapper.valveClosingDegreeProperty] = valjson
 				}
 
 			default:

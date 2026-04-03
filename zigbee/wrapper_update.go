@@ -60,6 +60,9 @@ func (wrapper *WrapperUpdate) UpdateInfo(info DeviceInfo) (handled []HandledExpo
 
 func (wrapper *WrapperUpdate) UpdateState(state DeviceState) (handled []string) {
 	for key, value := range state.Values {
+		if key == "" {
+			continue
+		}
 		switch key {
 		case "update_available":
 			handled = append(handled, key)

@@ -92,6 +92,9 @@ func (wrapper *WrapperBattery) UpdateInfo(info DeviceInfo) (handled []HandledExp
 
 func (wrapper *WrapperBattery) UpdateState(state DeviceState) (handled []string) {
 	for key, value := range state.Values {
+		if key == "" {
+			continue
+		}
 		switch key {
 		case wrapper.batteryProperty:
 			handled = append(handled, key)

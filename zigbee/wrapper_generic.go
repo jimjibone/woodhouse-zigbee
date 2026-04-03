@@ -215,6 +215,9 @@ func (wrapper *WrapperGeneric) UpdateInfo(info DeviceInfo, ignore []HandledExpos
 
 func (wrapper *WrapperGeneric) UpdateState(state DeviceState, ignore []string) (handled []string) {
 	for key, value := range state.Values {
+		if key == "" {
+			continue
+		}
 		if binary, found := wrapper.binaries[key]; found {
 			handled = append(handled, key)
 			val, err := binary.converter.UnmarshalValue(value)

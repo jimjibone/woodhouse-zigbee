@@ -99,6 +99,9 @@ func (wrapper *WrapperEnvironment) UpdateInfo(info DeviceInfo) (handled []Handle
 
 func (wrapper *WrapperEnvironment) UpdateState(state DeviceState) (handled []string) {
 	for key, value := range state.Values {
+		if key == "" {
+			continue
+		}
 		switch key {
 		case wrapper.temperatureProperty:
 			handled = append(handled, key)

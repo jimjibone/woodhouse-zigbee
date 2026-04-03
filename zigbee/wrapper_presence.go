@@ -103,6 +103,9 @@ func (wrapper *WrapperPresence) UpdateInfo(info DeviceInfo) (handled []HandledEx
 
 func (wrapper *WrapperPresence) UpdateState(state DeviceState) (handled []string) {
 	for key, value := range state.Values {
+		if key == "" {
+			continue
+		}
 		switch key {
 		case wrapper.motionProperty:
 			handled = append(handled, key)

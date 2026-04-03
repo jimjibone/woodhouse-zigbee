@@ -94,6 +94,9 @@ func (wrapper *WrapperAction) UpdateInfo(info DeviceInfo) (handled []HandledExpo
 
 func (wrapper *WrapperAction) UpdateState(state DeviceState) (handled []string) {
 	for key, value := range state.Values {
+		if key == "" {
+			continue
+		}
 		switch key {
 		case wrapper.actionProperty:
 			handled = append(handled, key)

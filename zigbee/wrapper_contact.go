@@ -65,6 +65,9 @@ func (wrapper *WrapperContact) UpdateInfo(info DeviceInfo) (handled []HandledExp
 
 func (wrapper *WrapperContact) UpdateState(state DeviceState) (handled []string) {
 	for key, value := range state.Values {
+		if key == "" {
+			continue
+		}
 		switch key {
 		case wrapper.contactProperty:
 			handled = append(handled, key)

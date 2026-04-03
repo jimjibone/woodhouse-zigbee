@@ -231,6 +231,9 @@ func (wrapper *WrapperLight) UpdateInfo(info DeviceInfo) (handled []HandledExpos
 
 func (wrapper *WrapperLight) UpdateState(state DeviceState) (handled []string) {
 	for key, value := range state.Values {
+		if key == "" {
+			continue
+		}
 		switch key {
 		case wrapper.onProperty:
 			handled = append(handled, key)
