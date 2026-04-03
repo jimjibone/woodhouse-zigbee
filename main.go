@@ -78,7 +78,8 @@ func main() {
 			client := wh.NewClient(
 				store,
 				args.String("addr"),
-				wh.WithClientInfo(args.String("id"), "Zigbee Bridge", "Bridge for Zigbee devices via zigbee2mqtt", "0.1.0"),
+				wh.WithClientID(args.String("id")),
+				wh.WithClientInfo("Zigbee Bridge", "Bridge for Zigbee devices via zigbee2mqtt", "0.1.0"),
 			)
 
 			// Start the zigbee goroutine.
