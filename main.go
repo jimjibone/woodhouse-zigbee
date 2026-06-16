@@ -5,9 +5,9 @@ import (
 	"os"
 	"sync"
 
-	"github.com/jimjibone/woodhouse-4/log"
-	"github.com/jimjibone/woodhouse-4/shared/stores"
-	wh "github.com/jimjibone/woodhouse-4/wh/v1"
+	"github.com/jimjibone/log"
+	"github.com/jimjibone/woodhouse-core/shared/stores"
+	wh "github.com/jimjibone/woodhouse-core/wh/v1"
 	"github.com/urfave/cli/v2"
 )
 

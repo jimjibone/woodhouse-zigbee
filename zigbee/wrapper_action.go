@@ -4,9 +4,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jimjibone/woodhouse-4/log"
-	"github.com/jimjibone/woodhouse-4/wh/v1/devices"
-	"github.com/jimjibone/woodhouse-4/wh/v1/devices/services"
+	"github.com/jimjibone/log"
+	"github.com/jimjibone/woodhouse-core/wh/v1/devices"
+	"github.com/jimjibone/woodhouse-core/wh/v1/devices/services"
 )
 
 var _ (Wrapper) = (*WrapperAction)(nil)

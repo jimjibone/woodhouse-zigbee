@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/jimjibone/woodhouse-4/cmd/woodhouse-zigbee/zigbee"
-	"github.com/jimjibone/woodhouse-4/log"
-	"github.com/jimjibone/woodhouse-4/shared/stores"
-	"github.com/jimjibone/woodhouse-4/wh/v1"
+	"github.com/jimjibone/log"
+	"github.com/jimjibone/woodhouse-core/cmd/woodhouse-zigbee/zigbee"
+	"github.com/jimjibone/woodhouse-core/shared/stores"
+	"github.com/jimjibone/woodhouse-core/wh/v1"
 )
 
 const (

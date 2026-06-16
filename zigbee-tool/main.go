@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/jimjibone/woodhouse-4/log"
+	"github.com/jimjibone/log"
 	"github.com/urfave/cli/v2"
 )
 
