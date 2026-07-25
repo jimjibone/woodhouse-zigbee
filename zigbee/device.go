@@ -2,13 +2,12 @@ package zigbee
 
 import (
 	"github.com/jimjibone/log"
-	"github.com/jimjibone/woodhouse-core/wh/v1"
-	"github.com/jimjibone/woodhouse-core/wh/v1/devices"
+	"github.com/jimjibone/wh/v1/bridges"
 )
 
 type ZigbeeDevice interface {
 	Name() string
-	Device() *devices.Device
+	Device() *bridges.Device
 	UpdateOnline(bool)
 	UpdateInfo(DeviceInfo)
 	UpdateState(DeviceState)
@@ -19,7 +18,7 @@ type ZigbeeRequest struct {
 	Payload []byte
 }
 
-func GenerateDevice(info DeviceInfo, client *wh.Client, baseUrl string, requests func(ZigbeeRequest)) ZigbeeDevice {
+func GenerateDevice(info DeviceInfo, client *bridges.Bridge, baseUrl string, requests func(ZigbeeRequest)) ZigbeeDevice {
 	if info.Type == "Coordinator" {
 		return nil
 	}

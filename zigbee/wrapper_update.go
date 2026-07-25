@@ -7,8 +7,8 @@ import (
 
 	"github.com/jimjibone/log"
 	clientsapi "github.com/jimjibone/woodhouse-api/go/v1/clients"
-	"github.com/jimjibone/woodhouse-core/wh/v1/devices"
-	"github.com/jimjibone/woodhouse-core/wh/v1/devices/services"
+	"github.com/jimjibone/wh/v1/bridges"
+	"github.com/jimjibone/wh/v1/bridges/services"
 )
 
 var _ (Wrapper) = (*WrapperUpdate)(nil)
@@ -34,7 +34,7 @@ func SupportsUpdate(info DeviceInfo) bool {
 	return info.Definition.SupportsOTA
 }
 
-func NewWrapperUpdate(log *log.Context, dev *devices.Device, requests func()) *WrapperUpdate {
+func NewWrapperUpdate(log *log.Context, dev *bridges.Device, requests func()) *WrapperUpdate {
 	wrapper := &WrapperUpdate{
 		log:           log,
 		update:        services.NewUpdate(""),

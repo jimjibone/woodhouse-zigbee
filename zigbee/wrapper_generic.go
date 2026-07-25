@@ -7,9 +7,9 @@ import (
 
 	"github.com/jimjibone/log"
 	clientsapi "github.com/jimjibone/woodhouse-api/go/v1/clients"
-	"github.com/jimjibone/woodhouse-core/wh/v1/devices"
-	"github.com/jimjibone/woodhouse-core/wh/v1/devices/attributes"
-	"github.com/jimjibone/woodhouse-core/wh/v1/devices/services"
+	"github.com/jimjibone/wh/v1/bridges"
+	"github.com/jimjibone/wh/v1/bridges/attributes"
+	"github.com/jimjibone/wh/v1/bridges/services"
 )
 
 type WrapperGeneric struct {
@@ -37,7 +37,7 @@ type genericNumeric struct {
 	attribute *attributes.Float
 }
 
-func NewWrapperGeneric(log *log.Context, dev *devices.Device, requests func(payload []byte)) *WrapperGeneric {
+func NewWrapperGeneric(log *log.Context, dev *bridges.Device, requests func(payload []byte)) *WrapperGeneric {
 	wrapper := &WrapperGeneric{
 		log:      log,
 		generic:  services.NewGeneric("generic"),

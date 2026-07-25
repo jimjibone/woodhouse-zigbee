@@ -2,8 +2,8 @@ package zigbee
 
 import (
 	"github.com/jimjibone/log"
-	"github.com/jimjibone/woodhouse-core/wh/v1/devices"
-	"github.com/jimjibone/woodhouse-core/wh/v1/devices/services"
+	"github.com/jimjibone/wh/v1/bridges"
+	"github.com/jimjibone/wh/v1/bridges/services"
 )
 
 var _ (Wrapper) = (*WrapperMotion)(nil)
@@ -30,7 +30,7 @@ func SupportsMotion(info DeviceInfo) bool {
 	return false
 }
 
-func NewWrapperMotion(log *log.Context, dev *devices.Device) *WrapperMotion {
+func NewWrapperMotion(log *log.Context, dev *bridges.Device) *WrapperMotion {
 	wrapper := &WrapperMotion{
 		log: log,
 		srv: services.NewMotion(""),

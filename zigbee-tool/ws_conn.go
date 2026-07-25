@@ -12,7 +12,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/jimjibone/log"
-	"github.com/jimjibone/woodhouse-core/cmd/woodhouse-zigbee/zigbee"
+	"github.com/jimjibone/woodhouse-zigbee/zigbee"
 )
 
 const (

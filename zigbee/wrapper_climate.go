@@ -6,8 +6,8 @@ import (
 
 	"github.com/jimjibone/log"
 	clientsapi "github.com/jimjibone/woodhouse-api/go/v1/clients"
-	"github.com/jimjibone/woodhouse-core/wh/v1/devices"
-	"github.com/jimjibone/woodhouse-core/wh/v1/devices/services"
+	"github.com/jimjibone/wh/v1/bridges"
+	"github.com/jimjibone/wh/v1/bridges/services"
 )
 
 var _ (Wrapper) = (*WrapperClimate)(nil)
@@ -48,7 +48,7 @@ func SupportsClimate(info DeviceInfo) bool {
 	return false
 }
 
-func NewWrapperClimate(log *log.Context, dev *devices.Device, requests func(payload []byte)) *WrapperClimate {
+func NewWrapperClimate(log *log.Context, dev *bridges.Device, requests func(payload []byte)) *WrapperClimate {
 	wrapper := &WrapperClimate{
 		log:      log,
 		climate:  services.NewClimate(""),

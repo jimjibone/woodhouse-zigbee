@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/jimjibone/log"
-	"github.com/jimjibone/woodhouse-core/wh/v1/devices"
-	"github.com/jimjibone/woodhouse-core/wh/v1/devices/services"
+	"github.com/jimjibone/wh/v1/bridges"
+	"github.com/jimjibone/wh/v1/bridges/services"
 )
 
 var _ (Wrapper) = (*WrapperAction)(nil)
@@ -42,7 +42,7 @@ func SupportsAction(info DeviceInfo) bool {
 	return false
 }
 
-func NewWrapperAction(log *log.Context, dev *devices.Device) *WrapperAction {
+func NewWrapperAction(log *log.Context, dev *bridges.Device) *WrapperAction {
 	wrapper := &WrapperAction{
 		log:    log,
 		button: services.NewButton(""),

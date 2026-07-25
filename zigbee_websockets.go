@@ -12,9 +12,9 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/jimjibone/log"
-	"github.com/jimjibone/woodhouse-core/cmd/woodhouse-zigbee/zigbee"
-	"github.com/jimjibone/woodhouse-core/shared/stores"
-	"github.com/jimjibone/woodhouse-core/wh/v1"
+	"github.com/jimjibone/wh/v1/bridges"
+	"github.com/jimjibone/wh/v1/shared/stores"
+	"github.com/jimjibone/woodhouse-zigbee/zigbee"
 )
 
 const (
@@ -31,13 +31,13 @@ type ZigbeeWebsockets struct {
 	lastBackoff     time.Time
 	lastRestart     time.Time
 	backoffDuration time.Duration
-	client          *wh.Client
+	bridge          *bridges.Bridge
 	connMu          sync.RWMutex
 	conn            *websocket.Conn
 	devices         map[string]zigbee.ZigbeeDevice // devices with their IEEE address as the key.
 }
 
-func (zb *ZigbeeWebsockets) Run(ctx context.Context, client *wh.Client) error {
+func (zb *ZigbeeWebsockets) Run(ctx context.Context, client *bridges.Bridge) error {
 	if zb.log == nil {
 		zb.log = log.NewContext(log.DefaultLogger, "zigbee", log.DebugLevel)
 	}
@@ -45,7 +45,7 @@ func (zb *ZigbeeWebsockets) Run(ctx context.Context, client *wh.Client) error {
 	log.Infof("started")
 	defer log.Infof("finished")
 
-	zb.client = client
+	zb.bridge = client
 	zb.devices = make(map[string]zigbee.ZigbeeDevice)
 
 	for {
@@ -208,7 +208,7 @@ func (zb *ZigbeeWebsockets) handleDeviceInfos(payload []byte) {
 		if dev, found := zb.devices[info.IEEEAddress]; found {
 			dev.UpdateInfo(info)
 		} else {
-			dev := zigbee.GenerateDevice(info, zb.client, zb.WebAddr, zb.requestHandler)
+			dev := zigbee.GenerateDevice(info, zb.bridge, zb.WebAddr, zb.requestHandler)
 			if dev != nil {
 				zb.devices[info.IEEEAddress] = dev
 			}

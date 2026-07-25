@@ -1,0 +1,92 @@
+version: 3
+
+vars:
+  BRIDGE_NAME: "woodhouse-zigbee"
+  TOOL_NAME: "zigbee-tool"
+  GOOS:
+    sh: go env GOOS
+  GOARCH:
+    sh: go env GOARCH
+  BUILD_DIR: "build-{{.GOOS}}-{{.GOARCH}}"
+
+dotenv:
+  - '.env'
+
+tasks:
+  build:
+    desc: Build the bridge
+    cmds:
+      - task: build-component
+        vars: { GOOS: "{{.GOOS}}", GOARCH: "{{.GOARCH}}", COMPONENT: "{{.BRIDGE_NAME}}", PKG: "." }
+
+  build-tool:
+    desc: Build the zigbee-tool CLI
+    cmds:
+      - task: build-component
+        vars: { GOOS: "{{.GOOS}}", GOARCH: "{{.GOARCH}}", COMPONENT: "{{.TOOL_NAME}}", PKG: "./zigbee-tool" }
+
+  deploy:
+    desc: Deploy the bridge
+    cmds:
+      - task: build-and-deploy-component
+        vars: { GOOS: "{{.DEPLOY_GOOS}}", GOARCH: "{{.DEPLOY_GOARCH}}", COMPONENT: "{{.BRIDGE_NAME}}", PKG: "." }
+
+  run:
+    desc: Build and run the bridge
+    deps:
+      - build
+    cmds:
+      - cd ./{{.BUILD_DIR}} && ./{{.BRIDGE_NAME}} {{.CLI_ARGS}}
+
+  run-tool:
+    desc: Build and run the zigbee-tool CLI
+    deps:
+      - build-tool
+    cmds:
+      - cd ./{{.BUILD_DIR}} && ./{{.TOOL_NAME}} {{.CLI_ARGS}}
+
+  init-deploy:
+    desc: Initialises the .env file used for deployment
+    cmds:
+      - touch .env
+      - |
+        add_var() {
+          grep -q "^$1=" .env || echo "$1=$2" >> .env
+        }
+        if ! grep -q "^# This file defines the variables used" .env; then
+          { echo "# This file defines the variables used in 'task deploy-*' commands - i.e. where does it deploy to."; cat .env; } > .env.tmp && mv .env.tmp .env
+        fi
+        add_var DEPLOY_HOST your-host.local
+        add_var DEPLOY_USER username
+        add_var DEPLOY_DIR "~/woodhouse/"
+        add_var DEPLOY_GOOS linux
+        add_var DEPLOY_GOARCH amd64
+
+  build-component:
+    env:
+      GOOS: '{{.GOOS}}'
+      GOARCH: '{{.GOARCH}}'
+    vars:
+      BUILD_DIR: "build-{{.GOOS}}-{{.GOARCH}}"
+    requires:
+      vars: [COMPONENT, PKG]
+    cmds:
+      - go build -o {{.BUILD_DIR}}/{{.COMPONENT}}{{exeExt}} {{.PKG}}
+
+  build-and-deploy-component:
+    env:
+      GOOS: '{{.GOOS}}'
+      GOARCH: '{{.GOARCH}}'
+    vars:
+      BUILD_DIR: "build-{{.GOOS}}-{{.GOARCH}}"
+    requires:
+      vars: [COMPONENT, PKG]
+    cmds:
+      - test "$DEPLOY_HOST"
+      - test "$DEPLOY_USER"
+      - test "$DEPLOY_DIR"
+      - test "$DEPLOY_GOOS"
+      - test "$DEPLOY_GOARCH"
+      - go build -o {{.BUILD_DIR}}/{{.COMPONENT}}{{exeExt}} {{.PKG}}
+      - rsync {{.BUILD_DIR}}/{{.COMPONENT}}{{exeExt}} $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/{{.BUILD_DIR}}/
+      - ssh $DEPLOY_USER@$DEPLOY_HOST systemctl --user restart {{.COMPONENT}}.service

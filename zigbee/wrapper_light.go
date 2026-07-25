@@ -7,8 +7,8 @@ import (
 
 	"github.com/jimjibone/log"
 	clientsapi "github.com/jimjibone/woodhouse-api/go/v1/clients"
-	"github.com/jimjibone/woodhouse-core/wh/v1/devices"
-	"github.com/jimjibone/woodhouse-core/wh/v1/devices/services"
+	"github.com/jimjibone/wh/v1/bridges"
+	"github.com/jimjibone/wh/v1/bridges/services"
 )
 
 var _ (Wrapper) = (*WrapperLight)(nil)
@@ -54,7 +54,7 @@ func SupportsLight(info DeviceInfo) bool {
 	return false
 }
 
-func NewWrapperLight(log *log.Context, dev *devices.Device, requests func(payload []byte)) *WrapperLight {
+func NewWrapperLight(log *log.Context, dev *bridges.Device, requests func(payload []byte)) *WrapperLight {
 	wrapper := &WrapperLight{
 		log:       log,
 		lightbulb: services.NewLightbulb(""),

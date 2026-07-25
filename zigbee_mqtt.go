@@ -10,8 +10,8 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/jimjibone/log"
 	"github.com/jimjibone/queue/v2"
-	"github.com/jimjibone/woodhouse-core/cmd/woodhouse-zigbee/zigbee"
-	"github.com/jimjibone/woodhouse-core/wh/v1"
+	"github.com/jimjibone/wh/v1/bridges"
+	"github.com/jimjibone/woodhouse-zigbee/zigbee"
 )
 
 type ZigbeeMQTT struct {
@@ -21,7 +21,7 @@ type ZigbeeMQTT struct {
 	RootTopic       string
 	lastBackoff     time.Time
 	backoffDuration time.Duration
-	client          *wh.Client
+	bridge          *bridges.Bridge
 	devices         map[string]zigbee.ZigbeeDevice // key = IEEE address
 	requests        *queue.Queue[zigbee.ZigbeeRequest]
 }
@@ -31,7 +31,7 @@ type publishMessage struct {
 	Payload []byte
 }
 
-func (zb *ZigbeeMQTT) Run(ctx context.Context, client *wh.Client) error {
+func (zb *ZigbeeMQTT) Run(ctx context.Context, client *bridges.Bridge) error {
 	if zb.log == nil {
 		zb.log = log.NewContext(log.DefaultLogger, "zigbee", log.DebugLevel)
 	}
@@ -39,7 +39,7 @@ func (zb *ZigbeeMQTT) Run(ctx context.Context, client *wh.Client) error {
 	zb.log.Infof("started")
 	defer zb.log.Infof("finished")
 
-	zb.client = client
+	zb.bridge = client
 	zb.devices = make(map[string]zigbee.ZigbeeDevice)
 	zb.requests = queue.New[zigbee.ZigbeeRequest]()
 	zb.requests.Discard(true)
@@ -211,7 +211,7 @@ func (zb *ZigbeeMQTT) handleDeviceInfos(payload []byte) {
 		if dev, found := zb.devices[info.IEEEAddress]; found {
 			dev.UpdateInfo(info)
 		} else {
-			dev := zigbee.GenerateDevice(info, zb.client, zb.WebAddr, zb.requestHandler)
+			dev := zigbee.GenerateDevice(info, zb.bridge, zb.WebAddr, zb.requestHandler)
 			if dev != nil {
 				zb.devices[info.IEEEAddress] = dev
 			}

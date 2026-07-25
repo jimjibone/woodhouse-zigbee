@@ -5,22 +5,21 @@ import (
 	"slices"
 
 	"github.com/jimjibone/log"
+	"github.com/jimjibone/wh/v1/bridges"
+	"github.com/jimjibone/wh/v1/bridges/services"
 	clientsapi "github.com/jimjibone/woodhouse-api/go/v1/clients"
-	"github.com/jimjibone/woodhouse-core/wh/v1"
-	"github.com/jimjibone/woodhouse-core/wh/v1/devices"
-	"github.com/jimjibone/woodhouse-core/wh/v1/devices/services"
 )
 
 type ZigbeeDeviceImpl struct {
 	log    *log.Context
-	client *wh.Client
+	bridge *bridges.Bridge
 	added  bool
 
 	baseUrl      string
 	friendlyName string
 	requests     func(ZigbeeRequest)
 
-	dev    *devices.Device
+	dev    *bridges.Device
 	info   *services.Info
 	online *services.Online
 
@@ -37,13 +36,13 @@ type ZigbeeDeviceImpl struct {
 	generic     *WrapperGeneric
 }
 
-func NewZigbeeDeviceImpl(info DeviceInfo, client *wh.Client, baseUrl string, requests func(ZigbeeRequest)) *ZigbeeDeviceImpl {
+func NewZigbeeDeviceImpl(info DeviceInfo, client *bridges.Bridge, baseUrl string, requests func(ZigbeeRequest)) *ZigbeeDeviceImpl {
 	dev := &ZigbeeDeviceImpl{
 		log:      log.NewContext(log.DefaultLogger, info.IEEEAddress, log.DebugLevel),
-		client:   client,
+		bridge:   client,
 		baseUrl:  baseUrl,
 		requests: requests,
-		dev:      devices.NewDevice(info.IEEEAddress, clientsapi.Device_DEVICE),
+		dev:      bridges.NewDevice(info.IEEEAddress, clientsapi.Device_DEVICE),
 		info:     services.NewInfo(),
 		online:   services.NewOnline(),
 	}
@@ -60,7 +59,7 @@ func NewZigbeeDeviceImpl(info DeviceInfo, client *wh.Client, baseUrl string, req
 	return dev
 }
 
-func (dev *ZigbeeDeviceImpl) Device() *devices.Device { return dev.dev }
+func (dev *ZigbeeDeviceImpl) Device() *bridges.Device { return dev.dev }
 func (dev *ZigbeeDeviceImpl) Name() string            { return dev.friendlyName }
 
 func (dev *ZigbeeDeviceImpl) sendZigbeeRequest(payload []byte) {
@@ -235,7 +234,7 @@ func (dev *ZigbeeDeviceImpl) UpdateState(state DeviceState) {
 	// Add this device to the client if not done already.
 	if !dev.added {
 		dev.added = true
-		err := dev.client.AddDevice(dev.dev)
+		err := dev.bridge.AddDevice(dev.dev)
 		if err != nil {
 			dev.log.Fatalf("failed to add device: %s", err)
 		}

@@ -6,8 +6,9 @@ import (
 	"sync"
 
 	"github.com/jimjibone/log"
-	"github.com/jimjibone/woodhouse-core/shared/stores"
-	wh "github.com/jimjibone/woodhouse-core/wh/v1"
+	"github.com/jimjibone/wh/v1/bridges"
+	"github.com/jimjibone/wh/v1/clients"
+	"github.com/jimjibone/wh/v1/shared/stores"
 	"github.com/urfave/cli/v2"
 )
 
@@ -75,12 +76,16 @@ func main() {
 			store := stores.NewFSStore(args.String("store"))
 
 			// Create the client.
-			client := wh.NewClient(
-				store,
-				args.String("addr"),
-				wh.WithClientID(args.String("id")),
-				wh.WithClientInfo("Zigbee Bridge", "Bridge for Zigbee devices via zigbee2mqtt", "0.1.0"),
-			)
+			client := bridges.NewBridge(bridges.BridgeConfig{
+				ClientConfig: clients.ClientConfig{
+					Store:             store,
+					ServerAddr:        args.String("addr"),
+					ClientID:          args.String("id"),
+					ClientName:        "Zigbee Bridge",
+					ClientDescription: "Bridge for Zigbee devices via zigbee2mqtt",
+					ClientVersion:     "0.1.0",
+				},
+			})
 
 			// Start the zigbee goroutine.
 			wg := &sync.WaitGroup{}

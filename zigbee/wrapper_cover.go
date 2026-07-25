@@ -6,8 +6,8 @@ import (
 
 	"github.com/jimjibone/log"
 	clientsapi "github.com/jimjibone/woodhouse-api/go/v1/clients"
-	"github.com/jimjibone/woodhouse-core/wh/v1/devices"
-	"github.com/jimjibone/woodhouse-core/wh/v1/devices/services"
+	"github.com/jimjibone/wh/v1/bridges"
+	"github.com/jimjibone/wh/v1/bridges/services"
 )
 
 var _ (Wrapper) = (*WrapperCover)(nil)
@@ -36,7 +36,7 @@ func SupportsCover(info DeviceInfo) bool {
 	return false
 }
 
-func NewWrapperCover(log *log.Context, dev *devices.Device, requests func(payload []byte)) *WrapperCover {
+func NewWrapperCover(log *log.Context, dev *bridges.Device, requests func(payload []byte)) *WrapperCover {
 	wrapper := &WrapperCover{
 		log:      log,
 		cover:    services.NewCover(""),

@@ -2,8 +2,8 @@ package zigbee
 
 import (
 	"github.com/jimjibone/log"
-	"github.com/jimjibone/woodhouse-core/wh/v1/devices"
-	"github.com/jimjibone/woodhouse-core/wh/v1/devices/services"
+	"github.com/jimjibone/wh/v1/bridges"
+	"github.com/jimjibone/wh/v1/bridges/services"
 )
 
 var _ (Wrapper) = (*WrapperContact)(nil)
@@ -30,7 +30,7 @@ func SupportsContact(info DeviceInfo) bool {
 	return false
 }
 
-func NewWrapperContact(log *log.Context, dev *devices.Device) *WrapperContact {
+func NewWrapperContact(log *log.Context, dev *bridges.Device) *WrapperContact {
 	wrapper := &WrapperContact{
 		log:     log,
 		contact: services.NewContact(""),

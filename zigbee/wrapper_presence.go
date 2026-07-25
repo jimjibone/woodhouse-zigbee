@@ -2,8 +2,8 @@ package zigbee
 
 import (
 	"github.com/jimjibone/log"
-	"github.com/jimjibone/woodhouse-core/wh/v1/devices"
-	"github.com/jimjibone/woodhouse-core/wh/v1/devices/services"
+	"github.com/jimjibone/wh/v1/bridges"
+	"github.com/jimjibone/wh/v1/bridges/services"
 )
 
 var _ (Wrapper) = (*WrapperPresence)(nil)
@@ -36,7 +36,7 @@ func SupportsPresence(info DeviceInfo) bool {
 	return false
 }
 
-func NewWrapperPresence(log *log.Context, dev *devices.Device) *WrapperPresence {
+func NewWrapperPresence(log *log.Context, dev *bridges.Device) *WrapperPresence {
 	wrapper := &WrapperPresence{
 		log: log,
 		srv: services.NewPresence(""),
