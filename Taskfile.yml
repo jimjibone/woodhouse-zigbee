@@ -88,5 +88,5 @@ tasks:
       - test "$DEPLOY_GOOS"
       - test "$DEPLOY_GOARCH"
       - go build -o {{.BUILD_DIR}}/{{.COMPONENT}}{{exeExt}} {{.PKG}}
-      - rsync {{.BUILD_DIR}}/{{.COMPONENT}}{{exeExt}} $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/{{.BUILD_DIR}}/
+      - rsync {{.BUILD_DIR}}/{{.COMPONENT}}{{exeExt}} $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR
       - ssh $DEPLOY_USER@$DEPLOY_HOST systemctl --user restart {{.COMPONENT}}.service
