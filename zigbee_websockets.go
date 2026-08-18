@@ -35,6 +35,7 @@ type ZigbeeWebsockets struct {
 	connMu          sync.RWMutex
 	conn            *websocket.Conn
 	devices         map[string]zigbee.ZigbeeDevice // devices with their IEEE address as the key.
+	bridgeDevice    *zigbee.BridgeDevice
 	correlator      *zigbee.ResponseCorrelator
 }
 
@@ -141,6 +142,7 @@ func (zb *ZigbeeWebsockets) recv(ctx context.Context, conn *websocket.Conn) {
 		switch frame.Topic {
 		case "bridge/info":
 			saveJson("zigbee-bridge-info.json", frame.Payload)
+			zb.handleBridgeInfo(frame.Payload)
 
 		case "bridge/devices":
 			saveJson("zigbee-bridge-devices.json", frame.Payload)
@@ -149,7 +151,7 @@ func (zb *ZigbeeWebsockets) recv(ctx context.Context, conn *websocket.Conn) {
 		case "bridge/config":
 			saveJson("zigbee-bridge-config.json", frame.Payload)
 
-		case "bridge/response/device/rename":
+		case "bridge/response/device/rename", "bridge/response/permit_join":
 			zb.correlator.HandleResponse(frame.Payload)
 
 		case "bridge/state", "bridge/groups", "bridge/extensions", "bridge/logging", "bridge/log":
@@ -218,6 +220,20 @@ func (zb *ZigbeeWebsockets) handleDeviceInfos(payload []byte) {
 				zb.devices[info.IEEEAddress] = dev
 			}
 		}
+	}
+}
+
+func (zb *ZigbeeWebsockets) handleBridgeInfo(payload []byte) {
+	var info zigbee.BridgeInfo
+	if err := json.Unmarshal(payload, &info); err != nil {
+		zb.log.Errorf("failed to unmarshal bridge info: %v", err)
+		return
+	}
+
+	if zb.bridgeDevice == nil {
+		zb.bridgeDevice = zigbee.NewBridgeDevice(info, zb.bridge, zb.WebAddr, zb.requestHandler, zb.correlator)
+	} else {
+		zb.bridgeDevice.UpdateInfo(info)
 	}
 }
 

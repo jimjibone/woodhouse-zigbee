@@ -23,6 +23,7 @@ type ZigbeeMQTT struct {
 	backoffDuration time.Duration
 	bridge          *bridges.Bridge
 	devices         map[string]zigbee.ZigbeeDevice // key = IEEE address
+	bridgeDevice    *zigbee.BridgeDevice
 	requests        *queue.Queue[zigbee.ZigbeeRequest]
 	correlator      *zigbee.ResponseCorrelator
 }
@@ -158,7 +159,17 @@ func (zb *ZigbeeMQTT) messageHandler(client mqtt.Client, msg mqtt.Message) {
 			return
 		}
 
+		if len(topicParts) > 2 && topicParts[2] == "info" {
+			zb.handleBridgeInfo(msg.Payload())
+			return
+		}
+
 		if len(topicParts) == 5 && topicParts[2] == "response" && topicParts[3] == "device" && topicParts[4] == "rename" {
+			zb.correlator.HandleResponse(msg.Payload())
+			return
+		}
+
+		if len(topicParts) == 4 && topicParts[2] == "response" && topicParts[3] == "permit_join" {
 			zb.correlator.HandleResponse(msg.Payload())
 			return
 		}
@@ -223,6 +234,20 @@ func (zb *ZigbeeMQTT) handleDeviceInfos(payload []byte) {
 				zb.devices[info.IEEEAddress] = dev
 			}
 		}
+	}
+}
+
+func (zb *ZigbeeMQTT) handleBridgeInfo(payload []byte) {
+	var info zigbee.BridgeInfo
+	if err := json.Unmarshal(payload, &info); err != nil {
+		zb.log.Errorf("failed to unmarshal bridge info: %v", err)
+		return
+	}
+
+	if zb.bridgeDevice == nil {
+		zb.bridgeDevice = zigbee.NewBridgeDevice(info, zb.bridge, zb.WebAddr, zb.requestHandler, zb.correlator)
+	} else {
+		zb.bridgeDevice.UpdateInfo(info)
 	}
 }
 
