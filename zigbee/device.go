@@ -18,7 +18,7 @@ type ZigbeeRequest struct {
 	Payload []byte
 }
 
-func GenerateDevice(info DeviceInfo, client *bridges.Bridge, baseUrl string, requests func(ZigbeeRequest)) ZigbeeDevice {
+func GenerateDevice(info DeviceInfo, client *bridges.Bridge, baseUrl string, requests func(ZigbeeRequest), correlator *ResponseCorrelator) ZigbeeDevice {
 	if info.Type == "Coordinator" {
 		return nil
 	}
@@ -40,7 +40,7 @@ func GenerateDevice(info DeviceInfo, client *bridges.Bridge, baseUrl string, req
 	// 	return NewZigbeeClimate(info, client, baseUrl, requests)
 
 	default:
-		dev := NewZigbeeDeviceImpl(info, client, baseUrl, requests)
+		dev := NewZigbeeDeviceImpl(info, client, baseUrl, requests, correlator)
 		if dev != nil {
 			return dev
 		}

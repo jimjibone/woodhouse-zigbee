@@ -1,8 +1,10 @@
 package zigbee
 
 import (
+	"encoding/json"
 	"fmt"
 	"slices"
+	"time"
 
 	"github.com/jimjibone/log"
 	"github.com/jimjibone/wh/v1/bridges"
@@ -18,6 +20,7 @@ type ZigbeeDeviceImpl struct {
 	baseUrl      string
 	friendlyName string
 	requests     func(ZigbeeRequest)
+	correlator   *ResponseCorrelator
 
 	dev    *bridges.Device
 	info   *services.Info
@@ -36,21 +39,24 @@ type ZigbeeDeviceImpl struct {
 	generic     *WrapperGeneric
 }
 
-func NewZigbeeDeviceImpl(info DeviceInfo, client *bridges.Bridge, baseUrl string, requests func(ZigbeeRequest)) *ZigbeeDeviceImpl {
+func NewZigbeeDeviceImpl(info DeviceInfo, client *bridges.Bridge, baseUrl string, requests func(ZigbeeRequest), correlator *ResponseCorrelator) *ZigbeeDeviceImpl {
 	dev := &ZigbeeDeviceImpl{
-		log:      log.NewContext(log.DefaultLogger, info.IEEEAddress, log.DebugLevel),
-		bridge:   client,
-		baseUrl:  baseUrl,
-		requests: requests,
-		dev:      bridges.NewDevice(info.IEEEAddress, clientsapi.Device_DEVICE),
-		info:     services.NewInfo(),
-		online:   services.NewOnline(),
+		log:        log.NewContext(log.DefaultLogger, info.IEEEAddress, log.DebugLevel),
+		bridge:     client,
+		baseUrl:    baseUrl,
+		requests:   requests,
+		correlator: correlator,
+		dev:        bridges.NewDevice(info.IEEEAddress, clientsapi.Device_DEVICE),
+		info:       services.NewInfo(),
+		online:     services.NewOnline(),
 	}
 
 	dev.dev.AddService(
 		dev.info,
 		dev.online,
 	)
+
+	dev.info.EnableRename(dev.handleRename)
 
 	dev.log.Infof("created device")
 
@@ -71,6 +77,49 @@ func (dev *ZigbeeDeviceImpl) sendUpdateRequest() {
 		Topic:   "bridge/request/device/ota_update/update",
 		Payload: fmt.Appendf(nil, `{"id": "%s"}`, dev.friendlyName),
 	})
+}
+
+// handleRename forwards a rename request to zigbee2mqtt and waits for its
+// response. The device's friendly name and info attributes are not updated
+// here; zigbee2mqtt republishes bridge/devices after a successful rename and
+// UpdateInfo picks up the new name from there.
+func (dev *ZigbeeDeviceImpl) handleRename(newName string) error {
+	if dev.correlator == nil {
+		return fmt.Errorf("rename not supported")
+	}
+
+	tx, ch := dev.correlator.NewTransaction()
+	defer dev.correlator.Forget(tx)
+
+	payload, err := json.Marshal(struct {
+		From                string `json:"from"`
+		To                  string `json:"to"`
+		HomeassistantRename bool   `json:"homeassistant_rename"`
+		Transaction         string `json:"transaction"`
+	}{
+		From:        dev.friendlyName,
+		To:          newName,
+		Transaction: tx,
+	})
+	if err != nil {
+		return err
+	}
+
+	dev.log.Infof("renaming %q to %q (transaction %s)", dev.friendlyName, newName, tx)
+	dev.requests(ZigbeeRequest{
+		Topic:   "bridge/request/device/rename",
+		Payload: payload,
+	})
+
+	select {
+	case res := <-ch:
+		if !res.OK {
+			return fmt.Errorf("zigbee2mqtt rename failed: %s", res.Error)
+		}
+		return nil
+	case <-time.After(10 * time.Second):
+		return fmt.Errorf("timed out waiting for zigbee2mqtt rename response")
+	}
 }
 
 func (dev *ZigbeeDeviceImpl) UpdateInfo(info DeviceInfo) {

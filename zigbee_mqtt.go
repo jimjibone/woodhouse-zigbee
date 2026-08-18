@@ -24,6 +24,7 @@ type ZigbeeMQTT struct {
 	bridge          *bridges.Bridge
 	devices         map[string]zigbee.ZigbeeDevice // key = IEEE address
 	requests        *queue.Queue[zigbee.ZigbeeRequest]
+	correlator      *zigbee.ResponseCorrelator
 }
 
 type publishMessage struct {
@@ -41,6 +42,7 @@ func (zb *ZigbeeMQTT) Run(ctx context.Context, client *bridges.Bridge) error {
 
 	zb.bridge = client
 	zb.devices = make(map[string]zigbee.ZigbeeDevice)
+	zb.correlator = zigbee.NewResponseCorrelator()
 	zb.requests = queue.New[zigbee.ZigbeeRequest]()
 	zb.requests.Discard(true)
 
@@ -156,6 +158,11 @@ func (zb *ZigbeeMQTT) messageHandler(client mqtt.Client, msg mqtt.Message) {
 			return
 		}
 
+		if len(topicParts) == 5 && topicParts[2] == "response" && topicParts[3] == "device" && topicParts[4] == "rename" {
+			zb.correlator.HandleResponse(msg.Payload())
+			return
+		}
+
 		// Ignore other bridge topics.
 		return
 	}
@@ -211,7 +218,7 @@ func (zb *ZigbeeMQTT) handleDeviceInfos(payload []byte) {
 		if dev, found := zb.devices[info.IEEEAddress]; found {
 			dev.UpdateInfo(info)
 		} else {
-			dev := zigbee.GenerateDevice(info, zb.bridge, zb.WebAddr, zb.requestHandler)
+			dev := zigbee.GenerateDevice(info, zb.bridge, zb.WebAddr, zb.requestHandler, zb.correlator)
 			if dev != nil {
 				zb.devices[info.IEEEAddress] = dev
 			}

@@ -35,6 +35,7 @@ type ZigbeeWebsockets struct {
 	connMu          sync.RWMutex
 	conn            *websocket.Conn
 	devices         map[string]zigbee.ZigbeeDevice // devices with their IEEE address as the key.
+	correlator      *zigbee.ResponseCorrelator
 }
 
 func (zb *ZigbeeWebsockets) Run(ctx context.Context, client *bridges.Bridge) error {
@@ -47,6 +48,7 @@ func (zb *ZigbeeWebsockets) Run(ctx context.Context, client *bridges.Bridge) err
 
 	zb.bridge = client
 	zb.devices = make(map[string]zigbee.ZigbeeDevice)
+	zb.correlator = zigbee.NewResponseCorrelator()
 
 	for {
 		// Try to connect.
@@ -147,6 +149,9 @@ func (zb *ZigbeeWebsockets) recv(ctx context.Context, conn *websocket.Conn) {
 		case "bridge/config":
 			saveJson("zigbee-bridge-config.json", frame.Payload)
 
+		case "bridge/response/device/rename":
+			zb.correlator.HandleResponse(frame.Payload)
+
 		case "bridge/state", "bridge/groups", "bridge/extensions", "bridge/logging", "bridge/log":
 			// Ignore these.
 
@@ -208,7 +213,7 @@ func (zb *ZigbeeWebsockets) handleDeviceInfos(payload []byte) {
 		if dev, found := zb.devices[info.IEEEAddress]; found {
 			dev.UpdateInfo(info)
 		} else {
-			dev := zigbee.GenerateDevice(info, zb.bridge, zb.WebAddr, zb.requestHandler)
+			dev := zigbee.GenerateDevice(info, zb.bridge, zb.WebAddr, zb.requestHandler, zb.correlator)
 			if dev != nil {
 				zb.devices[info.IEEEAddress] = dev
 			}
