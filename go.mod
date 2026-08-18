@@ -7,7 +7,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/jimjibone/log v0.0.0-20260606072821-03b097ef99de
 	github.com/jimjibone/queue v0.0.0-20251004200840-d3855e27766b
-	github.com/jimjibone/wh v0.0.0-20260724184323-3c5ae2c1888c
+	github.com/jimjibone/wh v0.0.0-20260818071435-85d2cbf46c87
 	github.com/jimjibone/woodhouse-api v0.0.0-20260711162143-11e44122cfd4
 	github.com/urfave/cli/v2 v2.27.7
 )
