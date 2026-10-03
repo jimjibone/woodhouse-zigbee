@@ -22,12 +22,8 @@ github.com/jimjibone/log v0.0.0-20260606072821-03b097ef99de h1:lacdWnURSFNru9mw4
 github.com/jimjibone/log v0.0.0-20260606072821-03b097ef99de/go.mod h1:cAZ4Fho7ewjG2YJswKbNnB5/kgT4b6xvYB+DosJhUeM=
 github.com/jimjibone/queue v0.0.0-20251004200840-d3855e27766b h1:lrRl76MlYrsW4n+J3HOKxXcEp8IWS4qDwlwydzZxL3Q=
 github.com/jimjibone/queue v0.0.0-20251004200840-d3855e27766b/go.mod h1:x9lSdmhC96e5FY2HvbEnFl+4IKhNje2gAIP//7wYcZM=
-github.com/jimjibone/wh v0.0.0-20260711170118-e12200ffa790 h1:FtCdi3oSvK46zKXtfKBvBL9B4zUbHM1fbtRPq874L0c=
-github.com/jimjibone/wh v0.0.0-20260711170118-e12200ffa790/go.mod h1:j5Fkyfd57Wn7RGLfrDsEDJyerCaU4ENaT9QD4qsPh64=
-github.com/jimjibone/wh v0.0.0-20260724184323-3c5ae2c1888c h1:qcoIGYNf5JMHKKnkhsaSr2GdpAHWZl5DfagpcTQzL9k=
-github.com/jimjibone/wh v0.0.0-20260724184323-3c5ae2c1888c/go.mod h1:j5Fkyfd57Wn7RGLfrDsEDJyerCaU4ENaT9QD4qsPh64=
-github.com/jimjibone/wh v0.0.0-20260818071435-85d2cbf46c87 h1:zy9pXlIqTwoYme3cqeao2y0dqjIQAkvIwXjm9FicO6s=
-github.com/jimjibone/wh v0.0.0-20260818071435-85d2cbf46c87/go.mod h1:j5Fkyfd57Wn7RGLfrDsEDJyerCaU4ENaT9QD4qsPh64=
+github.com/jimjibone/wh v0.0.0-20261003212337-8b1b105baca4 h1:n4IJdjc3Q62oqkFYOP4ZFv8Sdf33fbMwOu5IiLex0oc=
+github.com/jimjibone/wh v0.0.0-20261003212337-8b1b105baca4/go.mod h1:j5Fkyfd57Wn7RGLfrDsEDJyerCaU4ENaT9QD4qsPh64=
 github.com/jimjibone/woodhouse-api v0.0.0-20260711162143-11e44122cfd4 h1:aMKlGKOEhMDpEIfmNYgsa+cszOTnViQu06yIyaoHYY0=
 github.com/jimjibone/woodhouse-api v0.0.0-20260711162143-11e44122cfd4/go.mod h1:VIQNXdBRqxxhCf0tQcxUVo1nEETAWMS8GCkXjS6qcH4=
 github.com/mattn/go-colorable v0.1.14 h1:9A9LHSqF/7dyVVX6g0U9cwm9pG3kP9gSzcuIPHPsaIE=

@@ -39,6 +39,10 @@ type WrapperLight struct {
 	colorXConverter   *NumericConverter
 	colorYConverter   *NumericConverter
 
+	// Colour modes advertised in the lightbulb color_mode options.
+	colorModeTempSupported  bool
+	colorModeColorSupported bool
+
 	transitionProperty  string
 	transitionConverter *NumericConverter
 }
@@ -189,7 +193,8 @@ func (wrapper *WrapperLight) UpdateInfo(info DeviceInfo) (handled []HandledExpos
 						}
 
 					case "color_mode":
-						// ignore
+						// ignore: the color_mode options are derived from the
+						// color_temp and color_hs exposes below.
 
 					default:
 						wrapper.log.Warnf("unsupported light expose %q: %s", featureExpose.Name, featureExpose)
@@ -207,6 +212,22 @@ func (wrapper *WrapperLight) UpdateInfo(info DeviceInfo) (handled []HandledExpos
 		// Otherwise set default values.
 		if !wrapper.lightbulb.Color.IsSet() {
 			wrapper.lightbulb.Color.Set(0, 0, 0, 0)
+		}
+	}
+
+	wrapper.colorModeTempSupported = wrapper.ctProperty != ""
+	wrapper.colorModeColorSupported = !wrapper.ignoreColor
+	var colorModes []string
+	if wrapper.colorModeTempSupported {
+		colorModes = append(colorModes, services.LightbulbColorModeColorTemp)
+	}
+	if wrapper.colorModeColorSupported {
+		colorModes = append(colorModes, services.LightbulbColorModeColor)
+	}
+	if len(colorModes) > 0 {
+		wrapper.lightbulb.ColorMode.SetOptions(colorModes)
+		if !wrapper.lightbulb.ColorMode.IsSet() {
+			wrapper.lightbulb.ColorMode.Set(colorModes[0])
 		}
 	}
 
@@ -329,7 +350,34 @@ func (wrapper *WrapperLight) UpdateState(state DeviceState) (handled []string) {
 
 		case "color_mode":
 			handled = append(handled, key)
-			// ignore
+			var mode string
+			err := json.Unmarshal(value, &mode)
+			if err != nil {
+				wrapper.log.Errorf("failed to unmarshal color_mode value %q: %s", value, err)
+				break
+			}
+			var whMode string
+			var supported bool
+			switch mode {
+			case "color_temp":
+				whMode = services.LightbulbColorModeColorTemp
+				supported = wrapper.colorModeTempSupported
+			case "hs", "xy":
+				whMode = services.LightbulbColorModeColor
+				supported = wrapper.colorModeColorSupported
+			default:
+				wrapper.log.Debugf("unsupported color_mode value %q", mode)
+				break
+			}
+			if whMode == "" {
+				break
+			}
+			if !supported {
+				wrapper.log.Debugf("color_mode value %q not in configured options, skipping", mode)
+				break
+			}
+			wrapper.log.Debugf("color_mode value %q -> %s", mode, whMode)
+			wrapper.lightbulb.ColorMode.Set(whMode)
 		}
 	}
 	return handled
